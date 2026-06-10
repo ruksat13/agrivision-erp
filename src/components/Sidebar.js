@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 const menuItems = [
     { name: 'Dashboard', path: '/', icon: '📊' },
@@ -113,9 +114,15 @@ function Sidebar() {
     const navigate = useNavigate();
     const location = useLocation();
     const [openMenus, setOpenMenus] = useState({});
+    const { logout, currentUser } = useAuth();
 
     const toggleMenu = (name) => {
         setOpenMenus(prev => ({ ...prev, [name]: !prev[name] }));
+    };
+
+    const handleLogout = async () => {
+        await logout();
+        navigate('/login');
     };
 
     return (
@@ -129,7 +136,10 @@ function Sidebar() {
             overflowY: 'auto',
             color: 'white',
             fontFamily: 'Arial, sans-serif',
+            display: 'flex',
+            flexDirection: 'column',
         }}>
+            {/* Logo */}
             <div style={{
                 padding: '20px',
                 backgroundColor: '#0d6efd',
@@ -141,7 +151,21 @@ function Sidebar() {
                 🌿 Agrivision International
             </div>
 
-            <ul style={{ listStyle: 'none', padding: '10px 0', margin: 0 }}>
+            {/* User Info */}
+            {currentUser && (
+                <div style={{
+                    padding: '10px 16px',
+                    backgroundColor: '#111827',
+                    fontSize: '12px',
+                    color: '#adb5bd',
+                    borderBottom: '1px solid #2d3a5a',
+                }}>
+                    👤 {currentUser.email}
+                </div>
+            )}
+
+            {/* Menu */}
+            <ul style={{ listStyle: 'none', padding: '10px 0', margin: 0, flex: 1 }}>
                 {menuItems.map((item) => (
                     <li key={item.name}>
                         <div
@@ -183,6 +207,33 @@ function Sidebar() {
                     </li>
                 ))}
             </ul>
+
+            {/* Footer + Logout */}
+            <div style={{
+                padding: '12px 16px',
+                backgroundColor: '#111827',
+                borderTop: '1px solid #2d3a5a',
+            }}>
+                <div style={{ fontSize: '11px', color: '#64748b', textAlign: 'center', marginBottom: '8px' }}>
+                    © 2026 Agrivision International
+                </div>
+                <button
+                    onClick={handleLogout}
+                    style={{
+                        width: '100%',
+                        padding: '8px',
+                        background: '#dc3545',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontSize: '13px',
+                        fontWeight: '600',
+                    }}
+                >
+                    🚪 Logout
+                </button>
+            </div>
         </div>
     );
 }
