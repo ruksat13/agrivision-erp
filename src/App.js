@@ -25,7 +25,7 @@ function App() {
     <Router>
       <div style={{ display: 'flex' }}>
         <Sidebar />
-        <div style={{ flex: 1, marginLeft: '250px', padding: '20px', backgroundColor: '#f0f2f5', minHeight: '100vh' }}>
+        <div style={{ flex: 1, marginLeft: '250px', padding: '24px', background: 'transparent', minHeight: '100vh' }}>
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/sales" element={<Sales type="Sales" />} />
