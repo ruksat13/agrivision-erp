@@ -51,7 +51,7 @@ function HR({ type = 'Daily Visit' }) {
     const [data, setData] = useState(initialData[type] || []);
     const [search, setSearch] = useState('');
     const [showForm, setShowForm] = useState(false);
-    const [form, setForm] = useState({ name: '', date: '', status: 'Pending' });
+    //const [form, setForm] = useState({ name: '', date: '', status: 'Pending' });
 
     const filtered = data.filter(d =>
         Object.values(d).some(v => v.toString().toLowerCase().includes(search.toLowerCase()))

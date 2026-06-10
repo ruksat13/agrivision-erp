@@ -86,7 +86,7 @@ function Delivery() {
     const pending = orders.filter(o => o.status === 'Pending').length;
     const inTransit = orders.filter(o => o.status === 'In Transit').length;
     const delivered = orders.filter(o => o.status === 'Delivered').length;
-    const totalAmt = orders.reduce((s, o) => s + o.amount, 0);
+    //const totalAmt = orders.reduce((s, o) => s + o.amount, 0);
 
     return (
         <div style={{ fontFamily: 'Arial, sans-serif' }}>
