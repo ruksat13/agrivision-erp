@@ -151,18 +151,38 @@ function Sidebar() {
                 🌿 Agrivision International
             </div>
 
-            {/* User Info */}
+            {/* User Info
             {currentUser && (
-                <div style={{
-                    padding: '10px 16px',
-                    backgroundColor: '#111827',
-                    fontSize: '12px',
-                    color: '#adb5bd',
-                    borderBottom: '1px solid #2d3a5a',
-                }}>
-                    👤 {currentUser.email}
+                <div
+                    onClick={() => navigate('/profile')}
+                    style={{
+                        padding: '12px 16px',
+                        backgroundColor: '#111827',
+                        borderBottom: '1px solid #2d3a5a',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                    }}
+                >
+                    <div style={{
+                        width: '36px', height: '36px', borderRadius: '50%',
+                        background: '#0d6efd', color: 'white',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: '16px', fontWeight: '700', flexShrink: 0,
+                    }}>
+                        {currentUser.email.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                        <div style={{ fontSize: '12px', color: '#e2e8f0', fontWeight: '600' }}>
+                            {currentUser.displayName || currentUser.email.split('@')[0]}
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#64748b' }}>
+                            {currentUser.email}
+                        </div>
+                    </div>
                 </div>
-            )}
+            )} */}
 
             {/* Menu */}
             <ul style={{ listStyle: 'none', padding: '10px 0', margin: 0, flex: 1 }}>
