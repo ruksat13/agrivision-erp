@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import Navbar from './components/Navbar';
@@ -21,25 +21,47 @@ import Delivery from './pages/Delivery';
 import Profile from './pages/Profile';
 import Settings from './pages/Settings';
 import Login from './pages/Login';
+import ChangePassword from './pages/ChangePassword';
 import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './context/AuthContext';
 import './App.css';
 
 function App() {
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+
   return (
     <AuthProvider>
       <Router>
         <Routes>
-          {/* Public Route */}
           <Route path="/login" element={<Login />} />
-
-          {/* Protected Routes */}
           <Route path="/*" element={
             <ProtectedRoute>
               <div style={{ display: 'flex' }}>
-                <Sidebar />
-                <div style={{ flex: 1, marginLeft: '250px', minHeight: '100vh', background: '#f0f2f5' }}>
-                  <Navbar />
+
+                {/* Sidebar */}
+                <div style={{
+                  width: sidebarOpen ? '250px' : '0px',
+                  minWidth: sidebarOpen ? '250px' : '0px',
+                  overflow: 'hidden',
+                  transition: 'all 0.3s ease',
+                  position: 'fixed',
+                  top: 0,
+                  left: 0,
+                  height: '100vh',
+                  zIndex: 99,
+                }}>
+                  <Sidebar />
+                </div>
+
+                {/* Main Content */}
+                <div style={{
+                  flex: 1,
+                  marginLeft: sidebarOpen ? '250px' : '0px',
+                  transition: 'margin-left 0.3s ease',
+                  minHeight: '100vh',
+                  background: '#f0f2f5',
+                }}>
+                  <Navbar onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
                   <div style={{ padding: '24px' }}>
                     <Routes>
                       <Route path="/" element={<Dashboard />} />
@@ -105,12 +127,14 @@ function App() {
                       <Route path="/origin" element={<Categories type="Origin" />} />
                       <Route path="/delivery" element={<Delivery />} />
                       <Route path="/profile" element={<Profile />} />
+                      <Route path="/change-password" element={<ChangePassword />} />
                       <Route path="/vat" element={<Settings type="Vat" />} />
                       <Route path="/company-profile" element={<Settings type="Company Profile" />} />
                       <Route path="/configuration" element={<Settings type="Configuration" />} />
                     </Routes>
                   </div>
                 </div>
+
               </div>
             </ProtectedRoute>
           } />

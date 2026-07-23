@@ -59,6 +59,33 @@ function Dashboard() {
     return (
         <div style={{ fontFamily: 'Arial, sans-serif' }}>
 
+            {/* Scrolling Announcement Banner */}
+            <div style={{
+                backgroundColor: '#dc3545',
+                color: 'white',
+                padding: '10px 0',
+                marginBottom: '20px',
+                borderRadius: '8px',
+                overflow: 'hidden',
+                whiteSpace: 'nowrap',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+            }}>
+                <span style={{
+                    backgroundColor: '#b02a37',
+                    padding: '4px 12px',
+                    borderRadius: '4px',
+                    fontSize: '12px',
+                    fontWeight: 'bold',
+                    marginLeft: '10px',
+                    whiteSpace: 'nowrap',
+                }}>🔔 নোটিশ</span>
+                <marquee behavior="scroll" direction="left" scrollamount="5" style={{ flex: 1 }}>
+                    আগামী ১৫ জুলাই ২০২৬ তারিখে Head Office এ মাসিক সেলস মিটিং অনুষ্ঠিত হবে — সকল অফিসারদের উপস্থিত থাকার অনুরোধ করা হচ্ছে। &nbsp;&nbsp;&nbsp;🔔&nbsp;&nbsp;&nbsp; জুন মাসের বকেয়া কালেকশন ৩১ জুলাইয়ের মধ্যে জমা দিতে হবে। &nbsp;&nbsp;&nbsp;🔔&nbsp;&nbsp;&nbsp; নতুন প্রোডাক্ট লিস্ট আপডেট করা হয়েছে — Product পেজ দেখুন।
+                </marquee>
+            </div>
+
             <h2 style={{ marginBottom: '20px', color: '#1a2035' }}>📊 Dashboard — Agrivision International</h2>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>

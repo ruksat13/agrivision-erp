@@ -127,7 +127,7 @@ function Sales({ type = 'Sales' }) {
                 </table>
 
                 {filtered.length === 0 && (
-                    <p style={{ textAlign: 'center', color: '#adb5bd', padding: '20px' }}>কোনো ডেটা পাওয়া যায়নি</p>
+                    <p style={{ textAlign: 'center', color: '#adb5bd', padding: '20px' }}>No data found</p>
                 )}
             </div>
         </div>
