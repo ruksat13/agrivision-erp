@@ -114,7 +114,7 @@ function Sidebar() {
     const navigate = useNavigate();
     const location = useLocation();
     const [openMenus, setOpenMenus] = useState({});
-    const { logout, currentUser } = useAuth();
+    const { logout } = useAuth();
 
     const toggleMenu = (name) => {
         setOpenMenus(prev => ({ ...prev, [name]: !prev[name] }));

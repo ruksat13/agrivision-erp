@@ -81,6 +81,7 @@ function Dashboard() {
                     marginLeft: '10px',
                     whiteSpace: 'nowrap',
                 }}>🔔 নোটিশ</span>
+                {/* eslint-disable-next-line jsx-a11y/no-distracting-elements */}
                 <marquee behavior="scroll" direction="left" scrollamount="5" style={{ flex: 1 }}>
                     আগামী ১৫ জুলাই ২০২৬ তারিখে Head Office এ মাসিক সেলস মিটিং অনুষ্ঠিত হবে — সকল অফিসারদের উপস্থিত থাকার অনুরোধ করা হচ্ছে। &nbsp;&nbsp;&nbsp;🔔&nbsp;&nbsp;&nbsp; জুন মাসের বকেয়া কালেকশন ৩১ জুলাইয়ের মধ্যে জমা দিতে হবে। &nbsp;&nbsp;&nbsp;🔔&nbsp;&nbsp;&nbsp; নতুন প্রোডাক্ট লিস্ট আপডেট করা হয়েছে — Product পেজ দেখুন।
                 </marquee>
