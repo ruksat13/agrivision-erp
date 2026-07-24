@@ -7,6 +7,8 @@ import Sales from './pages/Sales';
 import SalesReturn from './pages/SalesReturn';
 import CancelSales from './pages/CancelSales';
 import Damage from './pages/Damage';
+import SupplierPurchase from './pages/SupplierPurchase';
+import CashCollection from './pages/CashCollection';
 import Accounts from './pages/Accounts';
 import Inventory from './pages/Inventory';
 import Reports from './pages/Reports';
@@ -72,8 +74,8 @@ function App() {
                       <Route path="/sales-return" element={<SalesReturn />} />
                       <Route path="/cancel-sales" element={<CancelSales />} />
                       <Route path="/damage" element={<Damage />} />
-                      <Route path="/supplier-purchase" element={<Accounts type="Supplier Purchase" />} />
-                      <Route path="/cash-collection" element={<Accounts type="Cash Collection" />} />
+                      <Route path="/supplier-purchase" element={<SupplierPurchase />} />
+                      <Route path="/cash-collection" element={<CashCollection />} />
                       <Route path="/supplier-payment" element={<Accounts type="Supplier Payment" />} />
                       <Route path="/customer-ledger" element={<Accounts type="Customer Ledger" />} />
                       <Route path="/customer-opening-balance" element={<Accounts type="Customer Opening Balance" />} />
