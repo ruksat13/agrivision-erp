@@ -9,6 +9,11 @@ import CancelSales from './pages/CancelSales';
 import Damage from './pages/Damage';
 import SupplierPurchase from './pages/SupplierPurchase';
 import CashCollection from './pages/CashCollection';
+import SupplierPayment from './pages/SupplierPayment';
+import CustomerLedger from './pages/CustomerLedger';
+import CustomerOpeningBalance from './pages/CustomerOpeningBalance';
+import SupplierLedger from './pages/SupplierLedger';
+import SupplierOpeningBalance from './pages/SupplierOpeningBalance';
 import Accounts from './pages/Accounts';
 import Inventory from './pages/Inventory';
 import Reports from './pages/Reports';
@@ -76,11 +81,11 @@ function App() {
                       <Route path="/damage" element={<Damage />} />
                       <Route path="/supplier-purchase" element={<SupplierPurchase />} />
                       <Route path="/cash-collection" element={<CashCollection />} />
-                      <Route path="/supplier-payment" element={<Accounts type="Supplier Payment" />} />
-                      <Route path="/customer-ledger" element={<Accounts type="Customer Ledger" />} />
-                      <Route path="/customer-opening-balance" element={<Accounts type="Customer Opening Balance" />} />
-                      <Route path="/supplier-ledger" element={<Accounts type="Supplier Ledger" />} />
-                      <Route path="/supplier-opening-balance" element={<Accounts type="Supplier Opening Balance" />} />
+                      <Route path="/supplier-payment" element={<SupplierPayment />} />
+                      <Route path="/customer-ledger" element={<CustomerLedger />} />
+                      <Route path="/customer-opening-balance" element={<CustomerOpeningBalance />} />
+                      <Route path="/supplier-ledger" element={<SupplierLedger />} />
+                      <Route path="/supplier-opening-balance" element={<SupplierOpeningBalance />} />
                       <Route path="/customer-commission" element={<Accounts type="Customer Commission" />} />
                       <Route path="/supplier-commission" element={<Accounts type="Supplier Commission" />} />
                       <Route path="/expense" element={<Accounts type="Expense" />} />
