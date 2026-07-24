@@ -29,7 +29,7 @@ const INITIAL_COLLECTIONS = [
         officer: 'Bokul Chandra Roy [ AIO-000032 ]',
         amount: 30000.00, type: 'Bank',
         bankName: 'Islami Bank Banglades Limited PLC(BARAGOLA), Joynanda Hat',
-        txnId: 'Smart Agrovet\n20503120100146408',
+        txnId: 'Agrivision International\n10293847560182736',
         receivedBy: 'Agrivision International [ AIE-000057 ]',
         receivedDate: '23-07-2026', status: 'Pending',
         customers: [
@@ -41,7 +41,7 @@ const INITIAL_COLLECTIONS = [
         officer: 'Md. Raihan Hossain [ AIO-000110 ]',
         amount: 29300.00, type: 'Bank',
         bankName: 'Islami Bank Banglades Limited PLC(BARAGOLA), Dimla Bazar',
-        txnId: 'Smart Agrovet\n20503120100146408',
+        txnId: 'Agrivision International\n10293847560182736',
         receivedBy: 'Agrivision International [ AIE-000057 ]',
         receivedDate: '23-07-2026', status: 'Pending',
         customers: [
@@ -53,7 +53,7 @@ const INITIAL_COLLECTIONS = [
         officer: 'Md. Ahsan Habib [ AIO-000019 ]',
         amount: 724270.00, type: 'Bank',
         bankName: 'Islami Bank Banglades Limited PLC(BARAGOLA), Nazipur Bazar Ibb',
-        txnId: 'Smart Agrovet\n20503120100146408',
+        txnId: 'Agrivision International\n10293847560182736',
         receivedBy: 'Agrivision International [ AIE-000057 ]',
         receivedDate: '23-07-2026', status: 'Pending',
         customers: [
@@ -66,7 +66,7 @@ const INITIAL_COLLECTIONS = [
         officer: 'Md. Bulbul Ahmed [ AIO-000090 ]',
         amount: 10000.00, type: 'Bank',
         bankName: 'Islami Bank Banglades Limited PLC(BARAGOLA), Dhopaghata Bazar Mohanpur',
-        txnId: 'Smart Agrovet\n20503120100146408',
+        txnId: 'Agrivision International\n10293847560182736',
         receivedBy: 'Agrivision International [ AIE-000057 ]',
         receivedDate: '23-07-2026', status: 'Pending',
         customers: [
@@ -78,7 +78,7 @@ const INITIAL_COLLECTIONS = [
         officer: 'Md. Rehanur Rahman [ AIO-000016 ]',
         amount: 31408.00, type: 'Bank',
         bankName: 'Islami Bank Banglades Limited PLC(BARAGOLA), Mirzapur Bazar Ibb L',
-        txnId: 'Smart Agrovet\n20503120100146408',
+        txnId: 'Agrivision International\n10293847560182736',
         receivedBy: 'Agrivision International [ AIE-000057 ]',
         receivedDate: '23-07-2026', status: 'Pending',
         customers: [
@@ -91,7 +91,7 @@ const INITIAL_COLLECTIONS = [
         officer: 'Abdullah [ AIO-000036 ]',
         amount: 28126.00, type: 'Bank',
         bankName: 'Islami Bank Banglades Limited PLC(BARAGOLA), Tetulia Bazar',
-        txnId: 'Smart Agrovet\n20503120100146408',
+        txnId: 'Agrivision International\n10293847560182736',
         receivedBy: 'Agrivision International [ AIE-000057 ]',
         receivedDate: '23-07-2026', status: 'Pending',
         customers: [],
@@ -101,7 +101,7 @@ const INITIAL_COLLECTIONS = [
         officer: 'Khairul Bashar Badsha [ AIO-000044 ]',
         amount: 7380.00, type: 'Bank',
         bankName: 'Islami Bank Banglades Limited PLC(BARAGOLA), Paglapir Bazar',
-        txnId: 'Smart Agrovet\n20503120100146408',
+        txnId: 'Agrivision International\n10293847560182736',
         receivedBy: 'Agrivision International [ AIE-000057 ]',
         receivedDate: '23-07-2026', status: 'Pending',
         customers: [],
@@ -111,7 +111,7 @@ const INITIAL_COLLECTIONS = [
         officer: 'Md. Shoriful Islam [ AIO-000015 ]',
         amount: 5000.00, type: 'Bank',
         bankName: 'Islami Bank Banglades Limited PLC(BARAGOLA), Abadkupur Bazar Dupchaca',
-        txnId: 'Smart Agrovet\n20503120100146408',
+        txnId: 'Agrivision International\n10293847560182736',
         receivedBy: 'Agrivision International [ AIE-000057 ]',
         receivedDate: '08-02-2024', status: 'Approved',
         customers: [
@@ -123,7 +123,7 @@ const INITIAL_COLLECTIONS = [
         officer: 'Md. Sohel Rana [ AIO-000058 ]',
         amount: 8376.00, type: 'Bank',
         bankName: 'Islami Bank Banglades Limited PLC(BARAGOLA), Kawnia Bazar Ibb L',
-        txnId: 'Smart Agrovet\n20503120100146408',
+        txnId: 'Agrivision International\n10293847560182736',
         receivedBy: 'Agrivision International [ AIE-000057 ]',
         receivedDate: '08-02-2024', status: 'Approved',
         customers: [

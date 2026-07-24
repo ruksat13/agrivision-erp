@@ -76,11 +76,11 @@ const recentActivities = [
 ];
 
 const latestOrders = [
-    { time: '8 hrs ago', invoice: 'SAINV-2026-07-0034690', amount: '৳ 21,830' },
-    { time: '10 hrs ago', invoice: 'SAINV-2026-07-0034689', amount: '৳ 23,718' },
-    { time: '11 hrs ago', invoice: 'SAINV-2026-07-0034688', amount: '৳ 40,571' },
-    { time: '11 hrs ago', invoice: 'SAINV-2026-07-0034687', amount: '৳ 0' },
-    { time: '11 hrs ago', invoice: 'SAINV-2026-07-0034686', amount: '৳ 100,856' },
+    { time: '8 hrs ago', invoice: 'AINV-2026-07-0034690', amount: '৳ 21,830' },
+    { time: '10 hrs ago', invoice: 'AINV-2026-07-0034689', amount: '৳ 23,718' },
+    { time: '11 hrs ago', invoice: 'AINV-2026-07-0034688', amount: '৳ 40,571' },
+    { time: '11 hrs ago', invoice: 'AINV-2026-07-0034687', amount: '৳ 0' },
+    { time: '11 hrs ago', invoice: 'AINV-2026-07-0034686', amount: '৳ 100,856' },
 ];
 
 const cardStyle = {
