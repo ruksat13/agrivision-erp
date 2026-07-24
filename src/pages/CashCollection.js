@@ -323,10 +323,15 @@ function CashCollection() {
     const [rows, setRows] = useState(INITIAL_COLLECTIONS);
     const [expanded, setExpanded] = useState({});
     const [search, setSearch] = useState('');
+    const [editRow, setEditRow] = useState(null);
 
     const toggleRow = (id) => setExpanded(prev => ({ ...prev, [id]: !prev[id] }));
     const handleApprove = (id) => setRows(prev => prev.map(r => r.id === id ? { ...r, status: 'Approved' } : r));
     const handleDelete = (id) => { if (!window.confirm('Delete this collection record?')) return; setRows(prev => prev.filter(r => r.id !== id)); };
+    const handleEditSave = () => {
+        setRows(prev => prev.map(r => r.id === editRow.id ? { ...editRow, amount: parseFloat(editRow.amount) || 0 } : r));
+        setEditRow(null);
+    };
 
     const handleAddSave = (data) => {
         const newId = Math.max(...rows.map(r => r.id)) + 1;
@@ -427,7 +432,7 @@ function CashCollection() {
                                         <td style={{ padding: '10px' }}></td>
                                         <td style={{ padding: '10px', whiteSpace: 'nowrap' }}>
                                             {row.status !== 'Approved' && (<>
-                                                <button title="Edit" style={{ background: '#f0932b', color: '#fff', border: 'none', borderRadius: 3, width: 26, height: 26, cursor: 'pointer', fontSize: 12, margin: '0 2px' }}>✎</button>
+                                                <button onClick={() => setEditRow({ ...row, amount: row.amount })} title="Edit" style={{ background: '#f0932b', color: '#fff', border: 'none', borderRadius: 3, width: 26, height: 26, cursor: 'pointer', fontSize: 12, margin: '0 2px' }}>✎</button>
                                                 <button onClick={() => handleApprove(row.id)} title="Approve"
                                                     style={{ background: '#28a745', color: '#fff', border: 'none', borderRadius: 3, width: 26, height: 26, cursor: 'pointer', fontSize: 12, margin: '0 2px' }}>✓</button>
                                                 <button onClick={() => handleDelete(row.id)} title="Delete"
@@ -487,6 +492,49 @@ function CashCollection() {
                     Showing {rows.length} records
                 </div>
             </div>
+
+            {/* Edit Modal */}
+            {editRow && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+                    onClick={e => e.target === e.currentTarget && setEditRow(null)}>
+                    <div style={{ background: '#fff', borderRadius: 8, padding: 28, width: 520, maxWidth: '96%', maxHeight: '90vh', overflowY: 'auto' }}>
+                        <h3 style={{ marginTop: 0, marginBottom: 18, fontSize: 16, color: '#1a2035' }}>✎ Edit Collection — {editRow.code}</h3>
+
+                        {[
+                            { label: 'Officer', key: 'officer', type: 'text' },
+                            { label: 'Amount', key: 'amount', type: 'number' },
+                            { label: 'Bank / Digital Name', key: 'bankName', type: 'text' },
+                            { label: 'TxnID / Account Name', key: 'txnId', type: 'text' },
+                            { label: 'Received By', key: 'receivedBy', type: 'text' },
+                            { label: 'Received Date', key: 'receivedDate', type: 'text' },
+                        ].map(f => (
+                            <div key={f.key} style={{ marginBottom: 12 }}>
+                                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4, color: '#555' }}>{f.label}</label>
+                                <input type={f.type} value={editRow[f.key]}
+                                    onChange={e => setEditRow(prev => ({ ...prev, [f.key]: e.target.value }))}
+                                    style={{ width: '100%', padding: '8px 12px', border: '1px solid #ddd', borderRadius: 5, fontSize: 13, boxSizing: 'border-box' }} />
+                            </div>
+                        ))}
+
+                        <div style={{ marginBottom: 14 }}>
+                            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4, color: '#555' }}>Payment Type</label>
+                            <select value={editRow.type} onChange={e => setEditRow(prev => ({ ...prev, type: e.target.value }))}
+                                style={{ width: '100%', padding: '8px 12px', border: '1px solid #ddd', borderRadius: 5, fontSize: 13 }}>
+                                {PAYMENT_TYPES.map(p => <option key={p} value={p}>{p}</option>)}
+                            </select>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 18 }}>
+                            <button onClick={() => setEditRow(null)}
+                                style={{ padding: '8px 20px', border: '1px solid #ddd', borderRadius: 5, cursor: 'pointer', fontSize: 13 }}>Cancel</button>
+                            <button onClick={handleEditSave}
+                                style={{ padding: '8px 20px', background: '#28a745', color: '#fff', border: 'none', borderRadius: 5, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
+                                💾 Save
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
