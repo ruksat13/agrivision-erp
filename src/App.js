@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard';
 import Sales from './pages/Sales';
 import SalesReturn from './pages/SalesReturn';
 import CancelSales from './pages/CancelSales';
+import Damage from './pages/Damage';
 import Accounts from './pages/Accounts';
 import Inventory from './pages/Inventory';
 import Reports from './pages/Reports';
@@ -70,7 +71,7 @@ function App() {
                       <Route path="/sales" element={<Sales type="Sales" />} />
                       <Route path="/sales-return" element={<SalesReturn />} />
                       <Route path="/cancel-sales" element={<CancelSales />} />
-                      <Route path="/damage" element={<Sales type="Damage" />} />
+                      <Route path="/damage" element={<Damage />} />
                       <Route path="/supplier-purchase" element={<Accounts type="Supplier Purchase" />} />
                       <Route path="/cash-collection" element={<Accounts type="Cash Collection" />} />
                       <Route path="/supplier-payment" element={<Accounts type="Supplier Payment" />} />
