@@ -5,6 +5,7 @@ import Navbar from './components/Navbar';
 import Dashboard from './pages/Dashboard';
 import Sales from './pages/Sales';
 import SalesReturn from './pages/SalesReturn';
+import CancelSales from './pages/CancelSales';
 import Accounts from './pages/Accounts';
 import Inventory from './pages/Inventory';
 import Reports from './pages/Reports';
@@ -68,7 +69,7 @@ function App() {
                       <Route path="/" element={<Dashboard />} />
                       <Route path="/sales" element={<Sales type="Sales" />} />
                       <Route path="/sales-return" element={<SalesReturn />} />
-                      <Route path="/cancel-sales" element={<Sales type="Cancel Sales" />} />
+                      <Route path="/cancel-sales" element={<CancelSales />} />
                       <Route path="/damage" element={<Sales type="Damage" />} />
                       <Route path="/supplier-purchase" element={<Accounts type="Supplier Purchase" />} />
                       <Route path="/cash-collection" element={<Accounts type="Cash Collection" />} />
