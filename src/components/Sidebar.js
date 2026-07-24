@@ -117,7 +117,11 @@ function Sidebar() {
     const { logout } = useAuth();
 
     const toggleMenu = (name) => {
-        setOpenMenus(prev => ({ ...prev, [name]: !prev[name] }));
+        setOpenMenus(prev => {
+            const isOpen = prev[name];
+            // Accordion: close all, open only the clicked one (unless it was already open)
+            return isOpen ? {} : { [name]: true };
+        });
     };
 
     const handleLogout = async () => {
