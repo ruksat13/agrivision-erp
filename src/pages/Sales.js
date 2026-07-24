@@ -1,5 +1,172 @@
 import React, { useState } from 'react';
 
+const COMPANY = {
+    name: 'Agrivision International',
+    address: 'House # 42, Road # 11, Block-C, Banani, Dhaka-1213, Bangladesh',
+    phone: '01700-123456',
+    email: 'info@agrivisionbd.com',
+    website: 'www.agrivisionbd.com',
+};
+
+// Generate mock product items for invoice modal
+const mockItems = (row) => [
+    { sn: 1, name: 'Smartzeb 80 Wp 100 Gm (blue)', qty: '1 * 1 = 1 ( Pcs )', unitPrice: row.amount > 0 ? parseFloat((row.amount * 0.6).toFixed(2)) : 0.00, price: row.amount > 0 ? parseFloat((row.amount * 0.6).toFixed(2)) : 0.00 },
+    { sn: 2, name: 'Cupertino 72wp Blue 100 Gm', qty: '1 * 1 = 1 ( Pcs )', unitPrice: row.amount > 0 ? parseFloat((row.amount * 0.4).toFixed(2)) : 0.00, price: row.amount > 0 ? parseFloat((row.amount * 0.4).toFixed(2)) : 0.00 },
+];
+
+function InvoiceModal({ row, onClose }) {
+    const items = mockItems(row);
+    const subTotal = items.reduce((s, i) => s + i.price, 0);
+    const shippingRate = 0;
+    const grandTotal = subTotal + shippingRate;
+
+    const handlePrint = () => {
+        const printContents = document.getElementById('sales-invoice-print-area').innerHTML;
+        const w = window.open('', '_blank');
+        w.document.write(`<!DOCTYPE html><html><head><title>Invoice - ${row.invoice}</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: Arial, sans-serif; font-size: 12px; color: #000; padding: 20px; }
+  .inv-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px; border-bottom:2px solid #1a2035; padding-bottom:12px; }
+  .company-name { font-size:22px; font-weight:bold; color:#0d6efd; }
+  .company-addr { font-size:11px; color:#555; margin-top:4px; }
+  .inv-title { font-size:18px; font-weight:bold; }
+  .inv-meta { font-size:11px; margin-top:6px; line-height:1.7; }
+  .billing { margin:12px 0; padding:10px; border:1px solid #ddd; border-radius:4px; background:#fafafa; }
+  table { width:100%; border-collapse:collapse; margin:12px 0; }
+  th { background:#1a2035; color:white; padding:8px; text-align:left; font-size:11px; }
+  td { padding:7px 8px; border-bottom:1px solid #eee; font-size:11px; }
+  .td-right { text-align:right; }
+  .total-section { display:flex; flex-direction:column; align-items:flex-end; margin:8px 0; font-size:12px; }
+  .grand-total { font-size:14px; font-weight:bold; }
+  .sig-area { display:flex; justify-content:space-between; margin-top:40px; }
+  .sig-item { text-align:center; }
+  .sig-name { font-size:12px; font-weight:bold; color:#0d6efd; margin-bottom:4px; }
+  .sig-line { border-top:1px dashed #000; width:140px; padding-top:4px; font-size:11px; }
+  .note { text-align:center; font-size:10px; color:#666; margin-top:10px; }
+  .offer-section { background:#fff8e1; border:1px solid #ffc107; border-radius:4px; padding:8px; margin:8px 0; font-size:11px; }
+</style></head><body>${printContents}</body></html>`);
+        w.document.close();
+        w.focus();
+        w.print();
+        w.close();
+    };
+
+    return (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.6)', zIndex:1000, display:'flex', alignItems:'flex-start', justifyContent:'center', overflowY:'auto', padding:'20px' }}
+            onClick={e => e.target === e.currentTarget && onClose()}>
+            <div style={{ background:'#fff', borderRadius:8, width:'900px', maxWidth:'98%', position:'relative' }}>
+                {/* Top bar */}
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'12px 20px', borderBottom:'1px solid #e0e0e0', background:'#f8f9fa', borderRadius:'8px 8px 0 0' }}>
+                    <span style={{ fontWeight:700, fontSize:15 }}>Invoice — {row.invoice}</span>
+                    <div style={{ display:'flex', gap:8 }}>
+                        <button onClick={handlePrint} style={{ background:'#0d6efd', color:'#fff', border:'none', borderRadius:5, padding:'6px 16px', cursor:'pointer', fontSize:13, fontWeight:600 }}>🖨️ Print</button>
+                        <button onClick={onClose} style={{ background:'#dc3545', color:'#fff', border:'none', borderRadius:5, padding:'6px 12px', cursor:'pointer', fontSize:13 }}>✕ Close</button>
+                    </div>
+                </div>
+
+                {/* Invoice body */}
+                <div id="sales-invoice-print-area" style={{ padding:'24px 28px' }}>
+                    {/* Header */}
+                    <div className="inv-header" style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:16, borderBottom:'2px solid #1a2035', paddingBottom:14 }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:14 }}>
+                            <div style={{ width:64, height:64, borderRadius:'50%', background:'#0d6efd', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontSize:22, fontWeight:700 }}>AI</div>
+                            <div>
+                                <div style={{ fontSize:22, fontWeight:700, color:'#0d6efd' }}>{COMPANY.name}</div>
+                                <div style={{ fontSize:11, color:'#555', marginTop:3 }}>📍 {COMPANY.address}</div>
+                                <div style={{ fontSize:11, color:'#555' }}>📞 {COMPANY.phone} &nbsp;|&nbsp; ✉️ {COMPANY.email} &nbsp;|&nbsp; 🌐 {COMPANY.website}</div>
+                            </div>
+                        </div>
+                        <div style={{ textAlign:'right' }}>
+                            <div style={{ fontSize:18, fontWeight:700, color:'#1a2035' }}>INVOICE</div>
+                            <div style={{ fontSize:11, marginTop:6, lineHeight:1.8, color:'#444' }}>
+                                <div><strong>Inv. No.:</strong> {row.invoice}</div>
+                                <div><strong>Inv. Date:</strong> {row.date}</div>
+                                <div><strong>Due Date:</strong> {row.date}</div>
+                                <div><strong>Status:</strong> <span style={{ color:'#28a745', fontWeight:700 }}>Confirmed</span></div>
+                                <div><strong>Payment Method:</strong> {row.pay}</div>
+                                <div><strong>Officer:</strong> Md. Sales Officer [AIO-000001]</div>
+                                <div><strong>Territory:</strong> Dhaka Sadar</div>
+                                <div><strong>Area:</strong> Dhaka</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Billing Address */}
+                    <div style={{ marginBottom:14, padding:'10px 14px', border:'1px solid #ddd', borderRadius:5, background:'#fafafa' }}>
+                        <div style={{ fontWeight:700, marginBottom:4, fontSize:13 }}>Billing Address</div>
+                        <div style={{ fontWeight:600, fontSize:13 }}>{row.name}</div>
+                        <div style={{ fontSize:12, color:'#555' }}>{row.address}</div>
+                        <div style={{ fontSize:12, color:'#555' }}>{row.phone}</div>
+                    </div>
+
+                    {/* Items Table */}
+                    <table style={{ width:'100%', borderCollapse:'collapse', marginBottom:10 }}>
+                        <thead>
+                            <tr style={{ background:'#1a2035', color:'#fff' }}>
+                                {['S/N','Name','Qty','Unit price','Price'].map(h => (
+                                    <th key={h} style={{ padding:'9px 10px', textAlign: h==='Unit price'||h==='Price' ? 'right' : 'left', fontSize:12 }}>{h}</th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {items.map(item => (
+                                <tr key={item.sn} style={{ borderBottom:'1px solid #eee' }}>
+                                    <td style={{ padding:'8px 10px', fontSize:12 }}>{item.sn}</td>
+                                    <td style={{ padding:'8px 10px', fontSize:12 }}>{item.name}</td>
+                                    <td style={{ padding:'8px 10px', fontSize:12 }}>{item.qty}</td>
+                                    <td style={{ padding:'8px 10px', fontSize:12, textAlign:'right' }}>{item.unitPrice.toFixed(2)}</td>
+                                    <td style={{ padding:'8px 10px', fontSize:12, textAlign:'right' }}>{item.price.toFixed(2)}</td>
+                                </tr>
+                            ))}
+                            <tr style={{ background:'#f5f5f5', fontWeight:700 }}>
+                                <td colSpan={4} style={{ padding:'8px 10px', fontSize:12, textAlign:'right' }}>Total &nbsp; 1 Carton</td>
+                                <td style={{ padding:'8px 10px', fontSize:12 }}></td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    {/* Offer section */}
+                    <div style={{ background:'#fff8e1', border:'1px solid #ffc107', borderRadius:4, padding:'8px 12px', marginBottom:12, fontSize:12 }}>
+                        <strong>Offer</strong><br />
+                        1. Agrivision Loyalty Bonus — Prev. Inv.: {row.invoice}
+                    </div>
+
+                    {/* Totals */}
+                    <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:4, marginBottom:10 }}>
+                        <div style={{ fontSize:13 }}>Sub Total &nbsp;&nbsp; <strong>{subTotal.toFixed(2)}</strong></div>
+                        <div style={{ fontSize:13 }}>Flat Shipping Rate (+) &nbsp;&nbsp; <strong>{shippingRate.toFixed(2)}</strong></div>
+                        <div style={{ fontSize:15, fontWeight:700 }}>Grand Total &nbsp;&nbsp; {grandTotal.toFixed(2)}</div>
+                    </div>
+
+                    {/* Due Balance */}
+                    <div style={{ fontSize:13, marginBottom:4 }}><strong>Due Balance :</strong> {(grandTotal * 3.5).toFixed(2)}</div>
+                    <div style={{ fontSize:12, color:'#555', marginBottom:30 }}>Amount in words for due balance</div>
+
+                    {/* Signatures — 4 columns */}
+                    <div style={{ display:'flex', justifyContent:'space-between', marginTop:40, flexWrap:'wrap', gap:16 }}>
+                        {[
+                            { name:'Md. Sales Officer', role:'Created by' },
+                            { name:'', role:'Authorised signature' },
+                            { name:'Md. Delivery Man', role:'Delivered by' },
+                            { name:'', role:'Customer signature' },
+                        ].map((sig) => (
+                            <div key={sig.role} style={{ textAlign:'center' }}>
+                                {sig.name && <div style={{ fontSize:12, fontWeight:700, color:'#0d6efd', marginBottom:4 }}>{sig.name}</div>}
+                                <div style={{ borderTop:'1px dashed #000', width:140, paddingTop:4, fontSize:11 }}>{sig.role}</div>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div style={{ textAlign:'center', fontSize:11, color:'#888', marginTop:14 }}>
+                        Invoice was created on a computer and is valid without the signature and seal.
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 const salesStatuses = ['Pending', 'Confirm', 'Processing', 'Scanning', 'Scanned', 'Picked', 'Shipped', 'Delivered'];
 const statusCounts = { Confirm: 47, Delivered: 21121 };
 
@@ -125,6 +292,10 @@ function Sales({ type = 'Sales' }) {
 
     // edit modal
     const [editRow, setEditRow] = useState(null);
+    // invoice view modal
+    const [viewRow, setViewRow] = useState(null);
+    // pending status change per row: { [rowId]: selectedStatus }
+    const [pendingStatus, setPendingStatus] = useState({});
 
     const isDelivered = activeStatus === 'Delivered';
     const showChangeStatus = activeStatus === 'Confirm';
@@ -283,15 +454,30 @@ function Sales({ type = 'Sales' }) {
                                 {showDeliveryMan && <td style={{ padding: '10px 12px' }}>{row.deliveryMan || '-'}</td>}
                                 {showChangeStatus && (
                                     <td style={{ padding: '10px 12px' }}>
-                                        <select value="" onChange={e => moveTo(row, e.target.value)}
-                                            style={{ ...inputStyle, fontSize: '12px', padding: '6px 8px' }}>
-                                            <option value="">Select status</option>
-                                            {salesStatuses.filter(s => s !== activeStatus).map(s => <option key={s}>{s}</option>)}
-                                        </select>
+                                        <div style={{ display:'flex', gap:4, alignItems:'center' }}>
+                                            <select
+                                                value={pendingStatus[row.id] || ''}
+                                                onChange={e => setPendingStatus(prev => ({ ...prev, [row.id]: e.target.value }))}
+                                                style={{ ...inputStyle, fontSize: '12px', padding: '6px 8px' }}>
+                                                <option value="">Select status</option>
+                                                {salesStatuses.filter(s => s !== activeStatus).map(s => <option key={s} value={s}>{s}</option>)}
+                                            </select>
+                                            <button
+                                                onClick={() => {
+                                                    const sel = pendingStatus[row.id];
+                                                    if (!sel) return;
+                                                    moveTo(row, sel);
+                                                    setPendingStatus(prev => { const n = {...prev}; delete n[row.id]; return n; });
+                                                }}
+                                                title="Confirm status change"
+                                                style={{ background:'#28a745', color:'#fff', border:'none', borderRadius:4, padding:'5px 8px', cursor:'pointer', fontWeight:700, fontSize:13 }}>
+                                                ✓
+                                            </button>
+                                        </div>
                                     </td>
                                 )}
                                 <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>
-                                    <ActionBtn bg="#0d6efd" title="Info" onClick={() => alert(`Invoice: ${row.invoice}\nCustomer: ${row.name}\nPhone: ${row.phone}\nAddress: ${row.address}, ${row.address2}\nDate: ${row.date}\nAmount: ${row.amount.toFixed(2)}\nSource: ${row.source}`)}>ℹ</ActionBtn>
+                                    <ActionBtn bg="#0d6efd" title="Info" onClick={() => setViewRow(row)}>ℹ</ActionBtn>
                                     {!isDelivered && <ActionBtn bg="#f0932b" title="Edit" onClick={() => setEditRow({ ...row })}>✎</ActionBtn>}
                                     {!isDelivered && <ActionBtn bg="#dc3545" title="Delete" onClick={() => handleDelete(row)}>🗑</ActionBtn>}
                                     {!isDelivered && <ActionBtn bg="#28a745" title="Move to next status" onClick={() => nextStatus(row)}>✓</ActionBtn>}
@@ -323,6 +509,9 @@ function Sales({ type = 'Sales' }) {
                     </div>
                 )}
             </div>
+
+            {/* Invoice View Modal */}
+            {viewRow && <InvoiceModal row={viewRow} onClose={() => setViewRow(null)} />}
 
             {/* Edit Modal */}
             {editRow && (
