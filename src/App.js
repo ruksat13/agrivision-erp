@@ -14,6 +14,7 @@ import CustomerLedger from './pages/CustomerLedger';
 import CustomerOpeningBalance from './pages/CustomerOpeningBalance';
 import SupplierLedger from './pages/SupplierLedger';
 import SupplierOpeningBalance from './pages/SupplierOpeningBalance';
+import CustomerCommission from './pages/CustomerCommission';
 import Accounts from './pages/Accounts';
 import Inventory from './pages/Inventory';
 import Reports from './pages/Reports';
@@ -86,7 +87,7 @@ function App() {
                       <Route path="/customer-opening-balance" element={<CustomerOpeningBalance />} />
                       <Route path="/supplier-ledger" element={<SupplierLedger />} />
                       <Route path="/supplier-opening-balance" element={<SupplierOpeningBalance />} />
-                      <Route path="/customer-commission" element={<Accounts type="Customer Commission" />} />
+                      <Route path="/customer-commission" element={<CustomerCommission />} />
                       <Route path="/supplier-commission" element={<Accounts type="Supplier Commission" />} />
                       <Route path="/expense" element={<Accounts type="Expense" />} />
                       <Route path="/employee-account" element={<Accounts type="Employee Account" />} />
