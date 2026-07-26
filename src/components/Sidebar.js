@@ -32,6 +32,10 @@ const menuItems = [
     {
         name: 'Inventory', icon: '📦', children: [
             { name: 'Purchase', path: '/purchase' },
+            { name: 'Purchase Return', path: '/purchase-return' },
+            { name: 'Stock Report', path: '/stock-report' },
+            { name: 'Central Stock Report', path: '/central-stock-report' },
+            { name: 'Offers', path: '/offers' },
             { name: 'Batch', path: '/batch' },
             { name: 'Repacking', path: '/repacking' },
             { name: 'Product Demand', path: '/product-demand' },

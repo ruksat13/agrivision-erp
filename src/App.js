@@ -98,6 +98,10 @@ function App() {
                       <Route path="/expense-head" element={<ExpenseHead />} />
                       <Route path="/bank-account" element={<BankAccount />} />
                       <Route path="/purchase" element={<Inventory type="Purchase" />} />
+                      <Route path="/purchase-return" element={<Inventory type="Purchase Return" />} />
+                      <Route path="/stock-report" element={<Inventory type="Stock Report" />} />
+                      <Route path="/central-stock-report" element={<Inventory type="Central Stock Report" />} />
+                      <Route path="/offers" element={<Inventory type="Offers" />} />
                       <Route path="/batch" element={<Inventory type="Batch" />} />
                       <Route path="/repacking" element={<Inventory type="Repacking" />} />
                       <Route path="/product-demand" element={<Inventory type="Product Demand" />} />
