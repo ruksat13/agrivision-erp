@@ -15,7 +15,11 @@ import CustomerOpeningBalance from './pages/CustomerOpeningBalance';
 import SupplierLedger from './pages/SupplierLedger';
 import SupplierOpeningBalance from './pages/SupplierOpeningBalance';
 import CustomerCommission from './pages/CustomerCommission';
-import Accounts from './pages/Accounts';
+import SupplierCommission from './pages/SupplierCommission';
+import Expense from './pages/Expense';
+import EmployeeAccount from './pages/EmployeeAccount';
+import ExpenseHead from './pages/ExpenseHead';
+import BankAccount from './pages/BankAccount';
 import Inventory from './pages/Inventory';
 import Reports from './pages/Reports';
 import License from './pages/License';
@@ -88,11 +92,11 @@ function App() {
                       <Route path="/supplier-ledger" element={<SupplierLedger />} />
                       <Route path="/supplier-opening-balance" element={<SupplierOpeningBalance />} />
                       <Route path="/customer-commission" element={<CustomerCommission />} />
-                      <Route path="/supplier-commission" element={<Accounts type="Supplier Commission" />} />
-                      <Route path="/expense" element={<Accounts type="Expense" />} />
-                      <Route path="/employee-account" element={<Accounts type="Employee Account" />} />
-                      <Route path="/expense-head" element={<Accounts type="Expense Head" />} />
-                      <Route path="/bank-account" element={<Accounts type="Bank Account" />} />
+                      <Route path="/supplier-commission" element={<SupplierCommission />} />
+                      <Route path="/expense" element={<Expense />} />
+                      <Route path="/employee-account" element={<EmployeeAccount />} />
+                      <Route path="/expense-head" element={<ExpenseHead />} />
+                      <Route path="/bank-account" element={<BankAccount />} />
                       <Route path="/purchase" element={<Inventory type="Purchase" />} />
                       <Route path="/batch" element={<Inventory type="Batch" />} />
                       <Route path="/repacking" element={<Inventory type="Repacking" />} />
