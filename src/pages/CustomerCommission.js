@@ -53,7 +53,7 @@ const invoiceData = {
     deliveredBy: 'Md. Zahadur Rahman [AIE-000054]',
 };
 
-function InvoiceModal({ invNo, onClose }) {
+function InvoicePage({ invNo, onBack }) {
     const d = invoiceData;
     const printInvoice = () => {
         const w = window.open('', '_blank');
@@ -74,18 +74,17 @@ function InvoiceModal({ invNo, onClose }) {
     };
 
     return (
-        <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '30px', overflowY: 'auto' }}>
-            <div onClick={e => e.stopPropagation()} style={{ background: 'white', borderRadius: '10px', width: '820px', maxWidth: '95vw' }}>
-                {/* toolbar */}
-                <div style={{ padding: '12px 20px', borderBottom: '1px solid #f0f0f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontWeight: '700', color: '#333' }}>Invoice Details</span>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                        <button onClick={printInvoice} style={{ padding: '5px 14px', background: '#0d6efd', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px' }}>🖨️ Print</button>
-                        <button onClick={onClose} style={{ padding: '5px 14px', background: '#6c757d', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px' }}>✕ Close</button>
-                    </div>
+        <div style={{ background: 'white', borderRadius: '10px', boxShadow: '0 1px 6px rgba(0,0,0,0.08)', maxWidth: '900px', margin: '0 auto' }}>
+            {/* toolbar */}
+            <div style={{ padding: '12px 20px', borderBottom: '1px solid #f0f0f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontWeight: '700', color: '#333' }}>&gt; Invoice Details</span>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                    <button onClick={printInvoice} style={{ padding: '6px 16px', background: '#0d6efd', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px' }}>🖨️ Print</button>
+                    <button onClick={onBack} style={{ padding: '6px 16px', background: '#6c757d', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px' }}>← Back</button>
                 </div>
+            </div>
 
-                <div style={{ padding: '24px 28px' }}>
+            <div style={{ padding: '24px 28px' }}>
                     {/* company + invoice header */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px', marginBottom: '18px' }}>
                         <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
@@ -158,9 +157,8 @@ function InvoiceModal({ invNo, onClose }) {
                             <div>Delivered by</div>
                         </div>
                     </div>
-                    <div style={{ textAlign: 'center', fontSize: '11px', color: '#999', marginTop: '14px' }}>
-                        Invoice was created on a computer and is valid without the signature and seal.
-                    </div>
+                <div style={{ textAlign: 'center', fontSize: '11px', color: '#999', marginTop: '14px' }}>
+                    Invoice was created on a computer and is valid without the signature and seal.
                 </div>
             </div>
         </div>
@@ -348,6 +346,7 @@ function CustomerCommission() {
     });
 
     if (view === 'add') return <AddForm onBack={() => setView('list')} />;
+    if (viewInvoice) return <InvoicePage invNo={viewInvoice} onBack={() => setViewInvoice(null)} />;
 
     const renderDetail = (d) => {
         if (d.kind === 'invoices') {
@@ -383,8 +382,6 @@ function CustomerCommission() {
 
     return (
         <div style={{ background: 'white', borderRadius: '10px', boxShadow: '0 1px 6px rgba(0,0,0,0.08)' }}>
-            {viewInvoice && <InvoiceModal invNo={viewInvoice} onClose={() => setViewInvoice(null)} />}
-
             <div onClick={() => setOpen(!open)} style={{ padding: '14px 20px', borderBottom: '1px solid #f0f0f0', fontWeight: '700', fontSize: '14px', color: '#333', cursor: 'pointer', userSelect: 'none' }}>
                 {open ? '∨' : '>'} Commission
             </div>
