@@ -152,9 +152,27 @@ function SupplierPayment() {
     const [editRow, setEditRow] = useState(null);
     const [open, setOpen] = useState(true);
 
+    const emptyF = { supplier: '', search: '', date: '', status: '' };
+    const [draft, setDraft] = useState(emptyF);
+    const [applied, setApplied] = useState(emptyF);
+    const handleGo = () => setApplied(draft);
+    const handleClear = () => { setDraft(emptyF); setApplied(emptyF); };
+    const toISO = (d) => d.split('-').reverse().join('-');
+
     const handleApprove = (id) => setPayments(prev => prev.map(p => p.id === id ? { ...p, status: 'Approved' } : p));
     const handleDelete = (id) => { if (window.confirm('Delete this payment?')) setPayments(prev => prev.filter(p => p.id !== id)); };
     const handleSave = (updated) => setPayments(prev => prev.map(p => p.id === updated.id ? updated : p));
+
+    const filtered = payments.filter(p => {
+        if (applied.supplier && p.supplier !== applied.supplier) return false;
+        if (applied.search) {
+            const k = applied.search.toLowerCase();
+            if (!p.supplier.toLowerCase().includes(k) && !p.code.toLowerCase().includes(k) && !p.note.toLowerCase().includes(k)) return false;
+        }
+        if (applied.date && toISO(p.date) !== applied.date) return false;
+        if (applied.status && p.status !== applied.status) return false;
+        return true;
+    });
 
     if (view === 'add') return <AddForm onBack={() => setView('list')} />;
 
@@ -172,19 +190,19 @@ function SupplierPayment() {
                     <>
                         {/* Filter bar */}
                         <div style={{ padding: '14px 20px', borderBottom: '1px solid #f0f0f0', display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
-                            <select style={{ padding: '7px 10px', border: '1px solid #dee2e6', borderRadius: '6px', fontSize: '13px', minWidth: '160px' }}>
-                                <option>🔍 Please select</option>
+                            <select value={draft.supplier} onChange={e => setDraft(p => ({ ...p, supplier: e.target.value }))} style={{ padding: '7px 10px', border: '1px solid #dee2e6', borderRadius: '6px', fontSize: '13px', minWidth: '160px' }}>
+                                <option value="">🔍 Please select</option>
                                 {supplierOptions.map(s => <option key={s}>{s}</option>)}
                             </select>
-                            <input placeholder="Search" style={{ padding: '7px 10px', border: '1px solid #dee2e6', borderRadius: '6px', fontSize: '13px', width: '140px' }} />
-                            <input type="date" style={{ padding: '7px 10px', border: '1px solid #dee2e6', borderRadius: '6px', fontSize: '13px' }} />
-                            <select style={{ padding: '7px 10px', border: '1px solid #dee2e6', borderRadius: '6px', fontSize: '13px', minWidth: '130px' }}>
-                                <option>🔍 Please select</option>
+                            <input placeholder="Search" value={draft.search} onChange={e => setDraft(p => ({ ...p, search: e.target.value }))} style={{ padding: '7px 10px', border: '1px solid #dee2e6', borderRadius: '6px', fontSize: '13px', width: '140px' }} />
+                            <input type="date" value={draft.date} onChange={e => setDraft(p => ({ ...p, date: e.target.value }))} style={{ padding: '7px 10px', border: '1px solid #dee2e6', borderRadius: '6px', fontSize: '13px' }} />
+                            <select value={draft.status} onChange={e => setDraft(p => ({ ...p, status: e.target.value }))} style={{ padding: '7px 10px', border: '1px solid #dee2e6', borderRadius: '6px', fontSize: '13px', minWidth: '130px' }}>
+                                <option value="">🔍 Please select</option>
                                 <option>Pending</option>
                                 <option>Approved</option>
                             </select>
-                            <button style={{ padding: '7px 18px', background: '#28a745', color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', cursor: 'pointer' }}>Go</button>
-                            <button style={{ padding: '7px 18px', background: '#dc3545', color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', cursor: 'pointer' }}>Clear</button>
+                            <button onClick={handleGo} style={{ padding: '7px 18px', background: '#28a745', color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', cursor: 'pointer' }}>Go</button>
+                            <button onClick={handleClear} style={{ padding: '7px 18px', background: '#dc3545', color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', cursor: 'pointer' }}>Clear</button>
                         </div>
 
                         {/* Table */}
@@ -207,7 +225,9 @@ function SupplierPayment() {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {payments.map((p, i) => (
+                                    {filtered.length === 0 ? (
+                                        <tr><td colSpan={9} style={{ ...tdS, textAlign: 'center', padding: '30px', color: '#6c757d' }}>No data found</td></tr>
+                                    ) : filtered.map((p, i) => (
                                         <tr key={p.id} style={{ background: i % 2 === 0 ? 'white' : '#fafafa' }}>
                                             <td style={{ ...tdS, textAlign: 'center' }}>{i + 1}</td>
                                             <td style={tdS}>

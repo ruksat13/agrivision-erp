@@ -21,6 +21,152 @@ const typeColors = {
     Invoice: '#6f42c1',
 };
 
+// Convert dd-mm-yyyy -> yyyy-mm-dd for comparison
+const toISO = (d) => d.split('-').reverse().join('-');
+
+// ---- Invoice detail (opens when an invoice code is clicked) ----
+const invoiceData = {
+    company: 'AGRIVISION INTERNATIONAL',
+    address: 'House # 42, Road # 11, Block-C, Banani, Dhaka-1213, Bangladesh',
+    phone: '01700-123456',
+    email: 'info@agrivisionbd.com',
+    web: 'www.agrivisionbd.com',
+    invDate: '19-06-2026',
+    dueDate: '26-06-2026',
+    status: 'Delivered',
+    payMethod: 'Cash',
+    officer: 'Abdullah [AIE-000036]',
+    territory: 'Tetulia, Panchagarh',
+    area: 'Panchagarh',
+    billName: 'M/s- Yesmin Traders [AIC-000241]',
+    billPerson: 'Md. Yusuf Ali',
+    billPhone: '01745831084',
+    billAddr: 'Tetulia, Panchagarh',
+    items: [
+        { sn: 1, name: 'One Short 3 Wdg 30 Gm', qty: '1 * 24 = 24 (30 Gm)' },
+        { sn: 2, name: 'One Short 3 Wdg 50 Gm', qty: '1 * 24 = 24 (50 Gm)' },
+    ],
+    totalCarton: '2 Carton',
+    dueBalance: '3,15,156.56',
+    dueWords: 'Three Lakh Fifteen Thousand One Hundred and Fifty Six Taka And Fifty Six Paisa',
+    createdBy: 'Abdullah [AIE-000036]',
+    deliveredBy: 'Md. Zahadur Rahman [AIE-000054]',
+};
+
+function InvoiceModal({ invNo, onClose }) {
+    const d = invoiceData;
+    const printInvoice = () => {
+        const w = window.open('', '_blank');
+        w.document.write(`<html><head><title>${invNo}</title></head><body style="font-family:Arial;padding:30px">
+        <div style="display:flex;justify-content:space-between">
+          <div><h2 style="margin:0">${d.company}</h2><p style="margin:4px 0;font-size:12px">${d.address}<br/>${d.phone} | ${d.email} | ${d.web}</p></div>
+          <div style="text-align:right"><h3 style="margin:0">INVOICE</h3><p style="font-size:12px">Inv No: ${invNo}<br/>Date: ${d.invDate}<br/>Status: ${d.status}</p></div>
+        </div>
+        <p style="font-size:12px"><b>Billing:</b> ${d.billName}, ${d.billPerson}, ${d.billPhone}, ${d.billAddr}</p>
+        <table border="1" cellpadding="6" style="border-collapse:collapse;width:100%;font-size:12px">
+        <tr><th>S/N</th><th>Name</th><th>Qty</th></tr>
+        ${d.items.map(it => `<tr><td>${it.sn}</td><td>${it.name}</td><td>${it.qty}</td></tr>`).join('')}
+        </table>
+        <p style="font-size:12px"><b>Total:</b> ${d.totalCarton}<br/><b>Due Balance:</b> ${d.dueBalance}<br/>${d.dueWords}</p>
+        </body></html>`);
+        w.document.close();
+        w.print();
+    };
+
+    return (
+        <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '30px', overflowY: 'auto' }}>
+            <div onClick={e => e.stopPropagation()} style={{ background: 'white', borderRadius: '10px', width: '820px', maxWidth: '95vw' }}>
+                {/* toolbar */}
+                <div style={{ padding: '12px 20px', borderBottom: '1px solid #f0f0f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontWeight: '700', color: '#333' }}>Invoice Details</span>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                        <button onClick={printInvoice} style={{ padding: '5px 14px', background: '#0d6efd', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px' }}>🖨️ Print</button>
+                        <button onClick={onClose} style={{ padding: '5px 14px', background: '#6c757d', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px' }}>✕ Close</button>
+                    </div>
+                </div>
+
+                <div style={{ padding: '24px 28px' }}>
+                    {/* company + invoice header */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px', marginBottom: '18px' }}>
+                        <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                            <div style={{ width: '54px', height: '54px', borderRadius: '50%', background: '#0d6efd', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: '800', flexShrink: 0 }}>AI</div>
+                            <div>
+                                <div style={{ fontSize: '18px', fontWeight: '800', color: '#1a2035' }}>{d.company}</div>
+                                <div style={{ fontSize: '11px', color: '#555', marginTop: '3px' }}>📍 {d.address}</div>
+                                <div style={{ fontSize: '11px', color: '#555' }}>📞 {d.phone} &nbsp; ✉ {d.email} &nbsp; 🌐 {d.web}</div>
+                            </div>
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#333', textAlign: 'right' }}>
+                            <div style={{ fontWeight: '800', fontSize: '16px', color: '#1a2035', marginBottom: '4px' }}>INVOICE</div>
+                            <div>Inv No: <b>{invNo}</b></div>
+                            <div>Inv Date: {d.invDate}</div>
+                            <div>Due Date: {d.dueDate}</div>
+                            <div>Status: <span style={{ color: '#28a745', fontWeight: '600' }}>{d.status}</span></div>
+                            <div>Payment: {d.payMethod}</div>
+                            <div>Officer: {d.officer}</div>
+                            <div>Territory: {d.territory}</div>
+                            <div>Area: {d.area}</div>
+                        </div>
+                    </div>
+
+                    {/* billing */}
+                    <div style={{ marginBottom: '14px', fontSize: '12px' }}>
+                        <div style={{ fontWeight: '700', color: '#1a2035' }}>Billing Address</div>
+                        <div>{d.billName}</div>
+                        <div>{d.billPerson}</div>
+                        <div>{d.billPhone}, {d.billAddr}</div>
+                    </div>
+
+                    {/* items */}
+                    <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '14px' }}>
+                        <thead>
+                            <tr style={{ background: '#f8f9fa' }}>
+                                <th style={{ border: '1px solid #dee2e6', padding: '8px', fontSize: '12px', textAlign: 'left', width: '60px' }}>S/N</th>
+                                <th style={{ border: '1px solid #dee2e6', padding: '8px', fontSize: '12px', textAlign: 'left' }}>Name</th>
+                                <th style={{ border: '1px solid #dee2e6', padding: '8px', fontSize: '12px', textAlign: 'left' }}>Qty</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {d.items.map(it => (
+                                <tr key={it.sn}>
+                                    <td style={{ border: '1px solid #dee2e6', padding: '8px', fontSize: '12px' }}>{it.sn}</td>
+                                    <td style={{ border: '1px solid #dee2e6', padding: '8px', fontSize: '12px' }}>{it.name}</td>
+                                    <td style={{ border: '1px solid #dee2e6', padding: '8px', fontSize: '12px' }}>{it.qty}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                    <div style={{ textAlign: 'right', fontWeight: '700', fontSize: '13px', marginBottom: '10px' }}>Total &nbsp; {d.totalCarton}</div>
+
+                    <div style={{ fontSize: '12px', marginBottom: '30px' }}>
+                        <div><b>Due Balance :</b> {d.dueBalance}</div>
+                        <div style={{ color: '#555' }}>{d.dueWords}</div>
+                    </div>
+
+                    {/* signatures */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '40px', fontSize: '11px', color: '#555' }}>
+                        <div style={{ textAlign: 'center' }}>
+                            <div style={{ borderTop: '1px dashed #999', paddingTop: '4px', minWidth: '150px' }}>{d.createdBy}</div>
+                            <div>Created by</div>
+                        </div>
+                        <div style={{ textAlign: 'center' }}>
+                            <div style={{ borderTop: '1px dashed #999', paddingTop: '4px', minWidth: '150px' }}>&nbsp;</div>
+                            <div>Authorised signature</div>
+                        </div>
+                        <div style={{ textAlign: 'center' }}>
+                            <div style={{ borderTop: '1px dashed #999', paddingTop: '4px', minWidth: '150px' }}>{d.deliveredBy}</div>
+                            <div>Delivered by</div>
+                        </div>
+                    </div>
+                    <div style={{ textAlign: 'center', fontSize: '11px', color: '#999', marginTop: '14px' }}>
+                        Invoice was created on a computer and is valid without the signature and seal.
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 // Commission records — Type = [category, method]
 const initialRecords = [
     {
@@ -95,57 +241,65 @@ const initialRecords = [
     },
 ];
 
-const typeOptions = ['Yearly Amount', 'Yearly Percentage', 'Product Amount', 'Travel Amount', 'Invoice Percentage'];
+const commissionTypes = ['Invoice Commission', 'Yearly Commission', 'Travel Allowance', 'Product'];
 const officeOptions = ['Head Office', 'Bogura Office', 'Naogaon Office'];
 const customerOptions = ['M/s-Aleya Traders', 'M/s-Solaiman Traders', 'M/s-J N Traders', 'M/s- sumaiya Traders', 'M/s-Nazim Enterprise'];
 
 function AddForm({ onBack }) {
-    const [form, setForm] = useState({ customer: '', type: '', amount: '', percent: '', date: today, note: '' });
+    const [form, setForm] = useState({ customer: '', type: '', date: today, amount: '', note: '' });
     const inp = { width: '100%', padding: '9px 12px', border: '1px solid #dee2e6', borderRadius: '6px', fontSize: '13px', boxSizing: 'border-box' };
+    const lbl = { fontSize: '13px', fontWeight: '600', color: '#495057', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px' };
 
     return (
         <div style={{ background: 'white', borderRadius: '10px', boxShadow: '0 1px 6px rgba(0,0,0,0.08)' }}>
             <div style={{ padding: '14px 20px', borderBottom: '1px solid #f0f0f0', fontWeight: '700', fontSize: '14px', color: '#333' }}>
-                Add Customer Commission
+                Commission
             </div>
             <div style={{ padding: '24px 32px' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                {/* row 1: Customer | Type | Date */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '18px', marginBottom: '18px' }}>
                     <div>
-                        <label style={{ fontSize: '13px', fontWeight: '600', color: '#495057', display: 'block', marginBottom: '5px' }}>Customer <span style={{ color: '#dc3545' }}>*</span></label>
+                        <label style={lbl}>
+                            Customer <span style={{ color: '#dc3545' }}>*</span>
+                            <span style={{ background: '#0d6efd', color: 'white', fontSize: '10px', padding: '1px 7px', borderRadius: '4px', cursor: 'pointer' }}>View</span>
+                        </label>
                         <select value={form.customer} onChange={e => setForm(p => ({ ...p, customer: e.target.value }))} style={inp}>
-                            <option value="">Select Customer</option>
+                            <option value="">Customer</option>
                             {customerOptions.map(c => <option key={c}>{c}</option>)}
                         </select>
                     </div>
                     <div>
-                        <label style={{ fontSize: '13px', fontWeight: '600', color: '#495057', display: 'block', marginBottom: '5px' }}>Commission Type <span style={{ color: '#dc3545' }}>*</span></label>
+                        <label style={lbl}>Type <span style={{ color: '#dc3545' }}>*</span></label>
                         <select value={form.type} onChange={e => setForm(p => ({ ...p, type: e.target.value }))} style={inp}>
-                            <option value="">🔍 Please select</option>
-                            {typeOptions.map(t => <option key={t}>{t}</option>)}
+                            <option value="">Type</option>
+                            {commissionTypes.map(t => <option key={t}>{t}</option>)}
                         </select>
                     </div>
                     <div>
-                        <label style={{ fontSize: '13px', fontWeight: '600', color: '#495057', display: 'block', marginBottom: '5px' }}>Date <span style={{ color: '#dc3545' }}>*</span></label>
+                        <label style={lbl}>Date <span style={{ color: '#dc3545' }}>*</span></label>
                         <input type="date" value={form.date} onChange={e => setForm(p => ({ ...p, date: e.target.value }))} style={{ ...inp, background: '#f8f9fa' }} />
                     </div>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-                    <div>
-                        <label style={{ fontSize: '13px', fontWeight: '600', color: '#495057', display: 'block', marginBottom: '5px' }}>Amount <span style={{ color: '#dc3545' }}>*</span></label>
-                        <input placeholder="Enter Amount" value={form.amount} onChange={e => setForm(p => ({ ...p, amount: e.target.value }))} style={inp} />
-                    </div>
-                    <div>
-                        <label style={{ fontSize: '13px', fontWeight: '600', color: '#495057', display: 'block', marginBottom: '5px' }}>Percentage (%)</label>
-                        <input placeholder="Enter Percentage" value={form.percent} onChange={e => setForm(p => ({ ...p, percent: e.target.value }))} style={inp} />
-                    </div>
+
+                {/* row 2: Commission Amount */}
+                <div style={{ marginBottom: '18px', maxWidth: '32%' }}>
+                    <label style={lbl}>
+                        Commission Amount <span style={{ color: '#dc3545' }}>*</span>
+                        <span style={{ background: '#0d6efd', color: 'white', fontSize: '10px', padding: '1px 6px', borderRadius: '4px' }}>00</span>
+                        <span style={{ background: '#dc3545', color: 'white', fontSize: '10px', padding: '1px 6px', borderRadius: '4px' }}>00</span>
+                    </label>
+                    <input placeholder="Enter Amount" value={form.amount} onChange={e => setForm(p => ({ ...p, amount: e.target.value }))} style={inp} />
                 </div>
+
+                {/* row 3: Note */}
                 <div style={{ marginBottom: '20px' }}>
-                    <label style={{ fontSize: '13px', fontWeight: '600', color: '#495057', display: 'block', marginBottom: '5px' }}>Note</label>
+                    <label style={lbl}>Note</label>
                     <textarea value={form.note} onChange={e => setForm(p => ({ ...p, note: e.target.value }))}
-                        style={{ ...inp, height: '80px', resize: 'vertical' }} />
+                        style={{ ...inp, height: '70px', resize: 'vertical' }} />
                 </div>
+
                 <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-                    <button onClick={onBack} style={{ padding: '8px 20px', background: '#6c757d', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px' }}>Back</button>
+                    <button onClick={onBack} style={{ padding: '8px 24px', background: '#0d6efd', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px' }}>Back</button>
                     <button style={{ padding: '8px 24px', background: '#28a745', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>Save</button>
                 </div>
             </div>
@@ -153,13 +307,45 @@ function AddForm({ onBack }) {
     );
 }
 
+const emptyFilter = { searchKey: '', invoiceNo: '', date: '', type: '', office: '' };
+
 function CustomerCommission() {
     const [view, setView] = useState('list');
     const [records, setRecords] = useState(initialRecords);
     const [open, setOpen] = useState(true);
+    const [viewInvoice, setViewInvoice] = useState(null);
+
+    // filter: draft = what's typed, applied = what Go committed
+    const [draft, setDraft] = useState(emptyFilter);
+    const [applied, setApplied] = useState(emptyFilter);
 
     const handleApprove = (id) => setRecords(prev => prev.map(r => r.id === id ? { ...r, status: 'Approved' } : r));
     const handleDelete = (id) => { if (window.confirm('Delete this commission?')) setRecords(prev => prev.filter(r => r.id !== id)); };
+
+    const handleGo = () => setApplied(draft);
+    const handleClear = () => { setDraft(emptyFilter); setApplied(emptyFilter); };
+
+    // apply filters
+    const filtered = records.filter(r => {
+        if (applied.searchKey) {
+            const k = applied.searchKey.toLowerCase();
+            if (!r.name.toLowerCase().includes(k) && !r.code.toLowerCase().includes(k) && !r.recordCode.toLowerCase().includes(k)) return false;
+        }
+        if (applied.invoiceNo) {
+            const inv = applied.invoiceNo.toLowerCase();
+            const list = r.detail.kind === 'invoices' ? r.detail.invoices : [];
+            if (!list.some(i => i.toLowerCase().includes(inv))) return false;
+        }
+        if (applied.date) {
+            if (toISO(r.date) !== applied.date) return false;
+        }
+        if (applied.type) {
+            // map commission type option -> category badge
+            const map = { 'Invoice Commission': 'Invoice', 'Yearly Commission': 'Yearly', 'Travel Allowance': 'Travel', 'Product': 'Product' };
+            if (!r.types.includes(map[applied.type])) return false;
+        }
+        return true;
+    });
 
     if (view === 'add') return <AddForm onBack={() => setView('list')} />;
 
@@ -169,7 +355,8 @@ function CustomerCommission() {
                 <div>
                     {d.invoices.map(inv => (
                         <div key={inv} style={{ marginBottom: '2px' }}>
-                            <span style={{ color: '#0d6efd', fontWeight: '600', fontSize: '11px', marginRight: '5px' }}>{inv}</span>
+                            <span onClick={() => setViewInvoice(inv)}
+                                style={{ color: '#0d6efd', fontWeight: '600', fontSize: '11px', marginRight: '5px', cursor: 'pointer', textDecoration: 'underline' }}>{inv}</span>
                             <Badge color="#0d6efd">Credit</Badge>
                         </div>
                     ))}
@@ -192,8 +379,12 @@ function CustomerCommission() {
         return null;
     };
 
+    const filterInput = { padding: '7px 10px', border: '1px solid #dee2e6', borderRadius: '6px', fontSize: '13px' };
+
     return (
         <div style={{ background: 'white', borderRadius: '10px', boxShadow: '0 1px 6px rgba(0,0,0,0.08)' }}>
+            {viewInvoice && <InvoiceModal invNo={viewInvoice} onClose={() => setViewInvoice(null)} />}
+
             <div onClick={() => setOpen(!open)} style={{ padding: '14px 20px', borderBottom: '1px solid #f0f0f0', fontWeight: '700', fontSize: '14px', color: '#333', cursor: 'pointer', userSelect: 'none' }}>
                 {open ? '∨' : '>'} Commission
             </div>
@@ -202,19 +393,27 @@ function CustomerCommission() {
                 <>
                     {/* Filter bar */}
                     <div style={{ padding: '14px 20px', borderBottom: '1px solid #f0f0f0', display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
-                        <input placeholder="🔍 Search Key" style={{ padding: '7px 10px', border: '1px solid #dee2e6', borderRadius: '6px', fontSize: '13px', width: '150px' }} />
-                        <input placeholder="🔍 Invoice No" style={{ padding: '7px 10px', border: '1px solid #dee2e6', borderRadius: '6px', fontSize: '13px', width: '140px' }} />
-                        <input type="date" style={{ padding: '7px 10px', border: '1px solid #dee2e6', borderRadius: '6px', fontSize: '13px' }} />
-                        <select style={{ padding: '7px 10px', border: '1px solid #dee2e6', borderRadius: '6px', fontSize: '13px', minWidth: '130px' }}>
-                            <option>🔍 Select Type</option>
-                            {typeOptions.map(t => <option key={t}>{t}</option>)}
+                        <input placeholder="🔍 Search Key" value={draft.searchKey}
+                            onChange={e => setDraft(p => ({ ...p, searchKey: e.target.value }))}
+                            style={{ ...filterInput, width: '150px' }} />
+                        <input placeholder="🔍 Invoice No" value={draft.invoiceNo}
+                            onChange={e => setDraft(p => ({ ...p, invoiceNo: e.target.value }))}
+                            style={{ ...filterInput, width: '140px' }} />
+                        <input type="date" value={draft.date}
+                            onChange={e => setDraft(p => ({ ...p, date: e.target.value }))}
+                            style={filterInput} />
+                        <select value={draft.type} onChange={e => setDraft(p => ({ ...p, type: e.target.value }))}
+                            style={{ ...filterInput, minWidth: '150px' }}>
+                            <option value="">🔍 Select Type</option>
+                            {commissionTypes.map(t => <option key={t}>{t}</option>)}
                         </select>
-                        <select style={{ padding: '7px 10px', border: '1px solid #dee2e6', borderRadius: '6px', fontSize: '13px', minWidth: '130px' }}>
-                            <option>🔍 Select Office</option>
+                        <select value={draft.office} onChange={e => setDraft(p => ({ ...p, office: e.target.value }))}
+                            style={{ ...filterInput, minWidth: '130px' }}>
+                            <option value="">🔍 Select Office</option>
                             {officeOptions.map(o => <option key={o}>{o}</option>)}
                         </select>
-                        <button style={{ padding: '7px 18px', background: '#28a745', color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', cursor: 'pointer' }}>Go</button>
-                        <button style={{ padding: '7px 18px', background: '#dc3545', color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', cursor: 'pointer' }}>Clear</button>
+                        <button onClick={handleGo} style={{ padding: '7px 18px', background: '#28a745', color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', cursor: 'pointer' }}>Go</button>
+                        <button onClick={handleClear} style={{ padding: '7px 18px', background: '#dc3545', color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', cursor: 'pointer' }}>Clear</button>
                     </div>
 
                     {/* Table */}
@@ -238,7 +437,9 @@ function CustomerCommission() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {records.map((r, i) => (
+                                {filtered.length === 0 ? (
+                                    <tr><td colSpan={10} style={{ ...tdS, textAlign: 'center', padding: '30px', color: '#6c757d' }}>No data found</td></tr>
+                                ) : filtered.map((r, i) => (
                                     <tr key={r.id} style={{ background: i % 2 === 0 ? 'white' : '#fafafa' }}>
                                         <td style={{ ...tdS, textAlign: 'center' }}>{r.no}</td>
                                         <td style={tdS}>

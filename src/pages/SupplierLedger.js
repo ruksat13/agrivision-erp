@@ -54,8 +54,19 @@ const PAGE_SIZE = 25;
 
 function SupplierLedger() {
     const [page, setPage] = useState(1);
-    const totalPages = Math.ceil(suppliers.length / PAGE_SIZE);
-    const paged = suppliers.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+    const [draft, setDraft] = useState('');
+    const [applied, setApplied] = useState('');
+    const handleGo = () => { setApplied(draft); setPage(1); };
+    const handleClear = () => { setDraft(''); setApplied(''); setPage(1); };
+
+    const filteredSuppliers = suppliers.filter(s => {
+        if (!applied) return true;
+        const k = applied.toLowerCase();
+        return s.name.toLowerCase().includes(k) || s.code.toLowerCase().includes(k) || s.phone.includes(applied);
+    });
+
+    const totalPages = Math.max(1, Math.ceil(filteredSuppliers.length / PAGE_SIZE));
+    const paged = filteredSuppliers.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
     return (
         <div style={{ background: 'white', borderRadius: '10px', boxShadow: '0 1px 6px rgba(0,0,0,0.08)' }}>
@@ -63,9 +74,9 @@ function SupplierLedger() {
                 &gt; Supplier Ledger
             </div>
             <div style={{ padding: '14px 20px', borderBottom: '1px solid #f0f0f0', display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
-                <input placeholder="Search name & code" style={{ padding: '7px 10px', border: '1px solid #dee2e6', borderRadius: '6px', fontSize: '13px', width: '200px' }} />
-                <button style={{ padding: '7px 18px', background: '#28a745', color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', cursor: 'pointer' }}>Go</button>
-                <button style={{ padding: '7px 18px', background: '#dc3545', color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', cursor: 'pointer' }}>Clear</button>
+                <input placeholder="Search name & code" value={draft} onChange={e => setDraft(e.target.value)} style={{ padding: '7px 10px', border: '1px solid #dee2e6', borderRadius: '6px', fontSize: '13px', width: '200px' }} />
+                <button onClick={handleGo} style={{ padding: '7px 18px', background: '#28a745', color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', cursor: 'pointer' }}>Go</button>
+                <button onClick={handleClear} style={{ padding: '7px 18px', background: '#dc3545', color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', cursor: 'pointer' }}>Clear</button>
                 <button style={{ padding: '7px 10px', background: '#28a745', color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', cursor: 'pointer' }}>🖨️</button>
             </div>
 
@@ -81,7 +92,9 @@ function SupplierLedger() {
                         </tr>
                     </thead>
                     <tbody>
-                        {paged.map((s, i) => (
+                        {paged.length === 0 ? (
+                            <tr><td colSpan={5} style={{ ...tdS, textAlign: 'center', padding: '30px', color: '#6c757d' }}>No data found</td></tr>
+                        ) : paged.map((s, i) => (
                             <tr key={s.id} style={{ background: i % 2 === 0 ? 'white' : '#fafafa' }}>
                                 <td style={{ ...tdS, textAlign: 'center' }}>{(page - 1) * PAGE_SIZE + i + 1}</td>
                                 <td style={tdS}>

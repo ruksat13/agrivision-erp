@@ -88,6 +88,22 @@ function CustomerOpeningBalance() {
     const [view, setView] = useState('list');
     const [records] = useState(initialRecords);
 
+    const emptyF = { search: '', date: '' };
+    const [draft, setDraft] = useState(emptyF);
+    const [applied, setApplied] = useState(emptyF);
+    const handleGo = () => setApplied(draft);
+    const handleClear = () => { setDraft(emptyF); setApplied(emptyF); };
+    const toISO = (d) => d.split('-').reverse().join('-');
+
+    const filtered = records.filter(r => {
+        if (applied.search) {
+            const k = applied.search.toLowerCase();
+            if (!r.name.toLowerCase().includes(k) && !r.code.toLowerCase().includes(k) && !r.note.toLowerCase().includes(k)) return false;
+        }
+        if (applied.date && toISO(r.date) !== applied.date) return false;
+        return true;
+    });
+
     if (view === 'add') return <AddForm onBack={() => setView('list')} />;
 
     return (
@@ -96,10 +112,10 @@ function CustomerOpeningBalance() {
                 &gt; Customer Opening Balance
             </div>
             <div style={{ padding: '14px 20px', borderBottom: '1px solid #f0f0f0', display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
-                <input placeholder="Search" style={{ padding: '7px 10px', border: '1px solid #dee2e6', borderRadius: '6px', fontSize: '13px', width: '160px' }} />
-                <input type="date" style={{ padding: '7px 10px', border: '1px solid #dee2e6', borderRadius: '6px', fontSize: '13px' }} />
-                <button style={{ padding: '7px 18px', background: '#28a745', color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', cursor: 'pointer' }}>Go</button>
-                <button style={{ padding: '7px 18px', background: '#dc3545', color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', cursor: 'pointer' }}>Clear</button>
+                <input placeholder="Search" value={draft.search} onChange={e => setDraft(p => ({ ...p, search: e.target.value }))} style={{ padding: '7px 10px', border: '1px solid #dee2e6', borderRadius: '6px', fontSize: '13px', width: '160px' }} />
+                <input type="date" value={draft.date} onChange={e => setDraft(p => ({ ...p, date: e.target.value }))} style={{ padding: '7px 10px', border: '1px solid #dee2e6', borderRadius: '6px', fontSize: '13px' }} />
+                <button onClick={handleGo} style={{ padding: '7px 18px', background: '#28a745', color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', cursor: 'pointer' }}>Go</button>
+                <button onClick={handleClear} style={{ padding: '7px 18px', background: '#dc3545', color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', cursor: 'pointer' }}>Clear</button>
             </div>
 
             <div style={{ overflowX: 'auto' }}>
@@ -121,7 +137,9 @@ function CustomerOpeningBalance() {
                         </tr>
                     </thead>
                     <tbody>
-                        {records.map((r, i) => (
+                        {filtered.length === 0 ? (
+                            <tr><td colSpan={9} style={{ ...tdS, textAlign: 'center', padding: '30px', color: '#6c757d' }}>No data found</td></tr>
+                        ) : filtered.map((r, i) => (
                             <tr key={r.id} style={{ background: i % 2 === 0 ? 'white' : '#fafafa' }}>
                                 <td style={{ ...tdS, textAlign: 'center' }}>{i + 1}</td>
                                 <td style={tdS}>

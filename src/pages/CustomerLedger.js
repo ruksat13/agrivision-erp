@@ -78,8 +78,24 @@ function CustomerLedger() {
     const [selected, setSelected] = useState(null);
     const [page, setPage] = useState(1);
 
-    const totalPages = Math.ceil(customers.length / PAGE_SIZE);
-    const paged = customers.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+    const emptyF = { search: '', area: '', territory: '' };
+    const [draft, setDraft] = useState(emptyF);
+    const [applied, setApplied] = useState(emptyF);
+    const handleGo = () => { setApplied(draft); setPage(1); };
+    const handleClear = () => { setDraft(emptyF); setApplied(emptyF); setPage(1); };
+
+    const filteredCustomers = customers.filter(c => {
+        if (applied.search) {
+            const k = applied.search.toLowerCase();
+            if (!c.name.toLowerCase().includes(k) && !c.code.toLowerCase().includes(k) && !c.phone.includes(applied.search)) return false;
+        }
+        if (applied.area && c.area !== applied.area) return false;
+        if (applied.territory && !c.territory.includes(applied.territory)) return false;
+        return true;
+    });
+
+    const totalPages = Math.max(1, Math.ceil(filteredCustomers.length / PAGE_SIZE));
+    const paged = filteredCustomers.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
     const openDetail = (c) => { setSelected(c); setView('detail'); };
 
@@ -170,21 +186,23 @@ function CustomerLedger() {
 
             {/* Filter */}
             <div style={{ padding: '14px 20px', borderBottom: '1px solid #f0f0f0', display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
-                <input placeholder="Search" style={{ padding: '7px 10px', border: '1px solid #dee2e6', borderRadius: '6px', fontSize: '13px', width: '160px' }} />
-                <select style={{ padding: '7px 10px', border: '1px solid #dee2e6', borderRadius: '6px', fontSize: '13px', minWidth: '140px' }}>
-                    <option>Select Area</option>
+                <input placeholder="Search" value={draft.search} onChange={e => setDraft(p => ({ ...p, search: e.target.value }))} style={{ padding: '7px 10px', border: '1px solid #dee2e6', borderRadius: '6px', fontSize: '13px', width: '160px' }} />
+                <select value={draft.area} onChange={e => setDraft(p => ({ ...p, area: e.target.value }))} style={{ padding: '7px 10px', border: '1px solid #dee2e6', borderRadius: '6px', fontSize: '13px', minWidth: '140px' }}>
+                    <option value="">Select Area</option>
                     <option>Bogura Sadar, Bogura</option>
+                    <option>Adamdighi, Bogura</option>
                     <option>Kalai Joypurhat, Bogura</option>
                     <option>Nandigram, Sherpur</option>
+                    <option>Sapahar, Naogaon</option>
                 </select>
-                <select style={{ padding: '7px 10px', border: '1px solid #dee2e6', borderRadius: '6px', fontSize: '13px', minWidth: '160px' }}>
-                    <option>Select Territory</option>
-                    <option>Mohastan Bazar, Shibganj</option>
-                    <option>Kalai, Joypurhat</option>
+                <select value={draft.territory} onChange={e => setDraft(p => ({ ...p, territory: e.target.value }))} style={{ padding: '7px 10px', border: '1px solid #dee2e6', borderRadius: '6px', fontSize: '13px', minWidth: '160px' }}>
+                    <option value="">Select Territory</option>
+                    <option>Mohastan Bazar</option>
+                    <option>Kalai</option>
                     <option>Nandigram</option>
                 </select>
-                <button style={{ padding: '7px 18px', background: '#28a745', color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', cursor: 'pointer' }}>Go</button>
-                <button style={{ padding: '7px 18px', background: '#dc3545', color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', cursor: 'pointer' }}>Clear</button>
+                <button onClick={handleGo} style={{ padding: '7px 18px', background: '#28a745', color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', cursor: 'pointer' }}>Go</button>
+                <button onClick={handleClear} style={{ padding: '7px 18px', background: '#dc3545', color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', cursor: 'pointer' }}>Clear</button>
                 <button style={{ padding: '7px 10px', background: '#28a745', color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', cursor: 'pointer' }}>🖨️</button>
             </div>
 
@@ -202,7 +220,9 @@ function CustomerLedger() {
                         </tr>
                     </thead>
                     <tbody>
-                        {paged.map((c, i) => (
+                        {paged.length === 0 ? (
+                            <tr><td colSpan={6} style={{ ...tdS, textAlign: 'center', padding: '30px', color: '#6c757d' }}>No data found</td></tr>
+                        ) : paged.map((c, i) => (
                             <tr key={c.id} style={{ background: i % 2 === 0 ? 'white' : '#fafafa' }}>
                                 <td style={{ ...tdS, textAlign: 'center' }}>{(page - 1) * PAGE_SIZE + i + 1}</td>
                                 <td style={tdS}>
