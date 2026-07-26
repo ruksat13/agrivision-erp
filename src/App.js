@@ -105,22 +105,46 @@ function App() {
                       <Route path="/batch" element={<Inventory type="Batch" />} />
                       <Route path="/repacking" element={<Inventory type="Repacking" />} />
                       <Route path="/product-demand" element={<Inventory type="Product Demand" />} />
-                      <Route path="/reports-sales" element={<Reports type="Sales Report" />} />
-                      <Route path="/reports-product-sales" element={<Reports type="Product Sales" />} />
+                      <Route path="/sales-report" element={<Reports type="Sales" />} />
+                      <Route path="/products-sales-report" element={<Reports type="Products Sales" />} />
+                      <Route path="/pending-products-sales-report" element={<Reports type="Pending Products Sales" />} />
                       <Route path="/officer-wise-sales" element={<Reports type="Officer Wise Sales" />} />
+                      <Route path="/officer-wise-product-sales" element={<Reports type="Officer Wise Product Sales" />} />
                       <Route path="/customer-wise-sales" element={<Reports type="Customer Wise Sales" />} />
+                      <Route path="/customer-wise-product-sales" element={<Reports type="Customer Wise Product Sales" />} />
                       <Route path="/territory-wise-sales" element={<Reports type="Territory Wise Sales" />} />
+                      <Route path="/territory-wise-product-sales" element={<Reports type="Territory Wise Product Sales" />} />
+                      <Route path="/territory-sales-summary" element={<Reports type="Territory Sales Summary" />} />
                       <Route path="/area-wise-sales" element={<Reports type="Area Wise Sales" />} />
-                      <Route path="/reports-collection" element={<Reports type="Collection" />} />
-                      <Route path="/officer-wise-collection" element={<Reports type="Officer Wise Collection" />} />
-                      <Route path="/customer-wise-collection" element={<Reports type="Customer Wise Collection" />} />
-                      <Route path="/territory-wise-collection" element={<Reports type="Territory Wise Collection" />} />
-                      <Route path="/area-wise-collection" element={<Reports type="Area Wise Collection" />} />
-                      <Route path="/reports-due" element={<Reports type="Due Report" />} />
-                      <Route path="/reports-expense" element={<Reports type="Expense Report" />} />
-                      <Route path="/reports-sales-return" element={<Reports type="Sales Return Report" />} />
+                      <Route path="/area-wise-product-sales" element={<Reports type="Area Wise Product Sales" />} />
+                      <Route path="/area-sales-summary" element={<Reports type="Area Sales Summary" />} />
+                      <Route path="/collection-report" element={<Reports type="Collection" />} />
+                      <Route path="/officer-wise-collection-report" element={<Reports type="Officer Wise Collection" />} />
+                      <Route path="/customer-wise-collection-report" element={<Reports type="Customer Wise Collection" />} />
+                      <Route path="/territory-wise-collection-report" element={<Reports type="Territory Wise Collection" />} />
+                      <Route path="/area-wise-collection-report" element={<Reports type="Area Wise Collection" />} />
+                      <Route path="/due-report" element={<Reports type="Due" />} />
+                      <Route path="/area-wise-due-report" element={<Reports type="Area Wise Due" />} />
+                      <Route path="/territory-wise-due-report" element={<Reports type="Territory Wise Due" />} />
+                      <Route path="/due-invoices" element={<Reports type="Due Invoices" />} />
+                      <Route path="/accounts-report" element={<Reports type="Accounts" />} />
+                      <Route path="/accounts-statement" element={<Reports type="Accounts Statement" />} />
+                      <Route path="/expense-report" element={<Reports type="Expense" />} />
+                      <Route path="/head-wise-expense-report" element={<Reports type="Head Wise Expense" />} />
+                      <Route path="/sales-return-report" element={<Reports type="Sales Return" />} />
+                      <Route path="/territory-wise-sales-return-report" element={<Reports type="Territory Wise Sales Return" />} />
+                      <Route path="/top-report" element={<Reports type="Top Reports" />} />
                       <Route path="/top-customers" element={<Reports type="Top Customers" />} />
-                      <Route path="/date-wise-invoices" element={<Reports type="Date Wise Invoices" />} />
+                      <Route path="/date-wise-invoice" element={<Reports type="Date Wise Invoices" />} />
+                      <Route path="/product-statement" element={<Reports type="Product Statement" />} />
+                      <Route path="/session-wise-target" element={<Reports type="Session Wise Target" />} />
+                      <Route path="/invoice-return-filter" element={<Reports type="Invoice Return Filter" />} />
+                      <Route path="/territory-performance" element={<Reports type="Territory Performance" />} />
+                      <Route path="/territory-target-and-achievement" element={<Reports type="Territory Target & Achievement" />} />
+                      <Route path="/area-target-and-achievement" element={<Reports type="Area Target & Achievement" />} />
+                      <Route path="/office-target-and-achievement" element={<Reports type="Office Target & Achievement" />} />
+                      <Route path="/purchase-report" element={<Reports type="Purchase" />} />
+                      <Route path="/product-demand-report" element={<Reports type="Product Demand" />} />
                       <Route path="/license" element={<License type="License" />} />
                       <Route path="/license-category" element={<License type="Category" />} />
                       <Route path="/product" element={<Product />} />
