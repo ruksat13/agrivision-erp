@@ -110,11 +110,20 @@ export function AuthProvider({ children }) {
     }
 
     useEffect(() => {
-        // restore local session first
+        // restore local session first — but always re-sync permissions/role/status
+        // from the av_users store (source of truth) so admin changes show after refresh
         try {
             const raw = localStorage.getItem(CURRENT_KEY);
             if (raw) {
-                setCurrentUser(JSON.parse(raw));
+                const saved = JSON.parse(raw);
+                const users = loadUsers();
+                const fresh = users.find(u => u.id === saved.id || (u.email && u.email === saved.email));
+                let user = saved;
+                if (fresh) {
+                    user = { ...saved, name: fresh.name, role: fresh.role, status: fresh.status, permissions: fresh.permissions };
+                    localStorage.setItem(CURRENT_KEY, JSON.stringify(user));
+                }
+                setCurrentUser(user);
                 setLoading(false);
                 return;
             }
