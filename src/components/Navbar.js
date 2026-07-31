@@ -23,12 +23,20 @@ function Navbar({ onToggleSidebar }) {
 
     useEffect(() => {
         const fetchName = async () => {
-            if (currentUser) {
-                const docRef = doc(db, 'users', currentUser.uid);
-                const docSnap = await getDoc(docRef);
-                if (docSnap.exists()) {
-                    setUserName(docSnap.data().name || '');
-                }
+            // local demo users carry their own name
+            if (currentUser?.name) {
+                setUserName(currentUser.name);
+                return;
+            }
+            // firebase users: look up name in Firestore
+            if (currentUser?.uid) {
+                try {
+                    const docRef = doc(db, 'users', currentUser.uid);
+                    const docSnap = await getDoc(docRef);
+                    if (docSnap.exists()) {
+                        setUserName(docSnap.data().name || '');
+                    }
+                } catch (e) { /* ignore */ }
             }
         };
         fetchName();

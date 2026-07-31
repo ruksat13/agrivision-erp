@@ -109,6 +109,23 @@ function Login() {
                     {loading ? 'Logging in...' : '🔐 Login'}
                 </button>
 
+                {/* Demo accounts quick-login */}
+                <div style={{ marginTop: '22px', paddingTop: '16px', borderTop: '1px dashed #e2e6ea' }}>
+                    <p style={{ fontSize: '12px', color: '#888', margin: '0 0 8px', fontWeight: '600' }}>Demo Accounts (password: 123456)</p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        {[
+                            { label: 'Akib — Super Admin (all access)', email: 'akib@agrivision.com' },
+                            { label: 'Sadab — Staff (limited access)', email: 'sadab@agrivision.com' },
+                        ].map(d => (
+                            <button key={d.email} type="button"
+                                onClick={() => { setEmail(d.email); setPassword('123456'); }}
+                                style={{ textAlign: 'left', padding: '8px 12px', background: '#f8f9fa', border: '1px solid #e9ecef', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', color: '#495057' }}>
+                                <b>{d.label}</b><br /><span style={{ color: '#888' }}>{d.email}</span>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
                 <p style={{ textAlign: 'center', fontSize: '12px', color: '#aaa', marginTop: '20px', marginBottom: 0 }}>
                     © 2026 Agrivision International
                 </p>
