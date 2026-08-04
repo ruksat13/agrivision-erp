@@ -20,7 +20,14 @@ import Expense from './pages/Expense';
 import EmployeeAccount from './pages/EmployeeAccount';
 import ExpenseHead from './pages/ExpenseHead';
 import BankAccount from './pages/BankAccount';
-import Inventory from './pages/Inventory';
+import Purchase from './pages/Purchase';
+import PurchaseReturn from './pages/PurchaseReturn';
+import StockReport from './pages/StockReport';
+import CentralStockReport from './pages/CentralStockReport';
+import Offers from './pages/Offers';
+import Batch from './pages/Batch';
+import Repacking from './pages/Repacking';
+import ProductDemand from './pages/ProductDemand';
 import Reports from './pages/Reports';
 import License from './pages/License';
 import Product from './pages/Product';
@@ -97,14 +104,14 @@ function App() {
                       <Route path="/employee-account" element={<EmployeeAccount />} />
                       <Route path="/expense-head" element={<ExpenseHead />} />
                       <Route path="/bank-account" element={<BankAccount />} />
-                      <Route path="/purchase" element={<Inventory type="Purchase" />} />
-                      <Route path="/purchase-return" element={<Inventory type="Purchase Return" />} />
-                      <Route path="/stock-report" element={<Inventory type="Stock Report" />} />
-                      <Route path="/central-stock-report" element={<Inventory type="Central Stock Report" />} />
-                      <Route path="/offers" element={<Inventory type="Offers" />} />
-                      <Route path="/batch" element={<Inventory type="Batch" />} />
-                      <Route path="/repacking" element={<Inventory type="Repacking" />} />
-                      <Route path="/product-demand" element={<Inventory type="Product Demand" />} />
+                      <Route path="/purchase" element={<Purchase />} />
+                      <Route path="/purchase-return" element={<PurchaseReturn />} />
+                      <Route path="/stock-report" element={<StockReport />} />
+                      <Route path="/central-stock-report" element={<CentralStockReport />} />
+                      <Route path="/offers" element={<Offers />} />
+                      <Route path="/batch" element={<Batch />} />
+                      <Route path="/repacking" element={<Repacking />} />
+                      <Route path="/product-demand" element={<ProductDemand />} />
                       <Route path="/sales-report" element={<Reports type="Sales" />} />
                       <Route path="/products-sales-report" element={<Reports type="Products Sales" />} />
                       <Route path="/pending-products-sales-report" element={<Reports type="Pending Products Sales" />} />
