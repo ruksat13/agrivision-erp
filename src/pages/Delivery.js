@@ -199,7 +199,7 @@ function Delivery() {
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                         <thead>
                             <tr style={{ backgroundColor: '#f8f9fa' }}>
-                                {['#', 'Order ID', 'Customer', 'Area', 'Date', 'Items', 'Amount', 'Status', 'Action'].map(h => (
+                                {['#', 'Order ID', 'Amount', 'Status', 'Action'].map(h => (
                                     <th key={h} style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #dee2e6' }}>{h}</th>
                                 ))}
                             </tr>
@@ -209,10 +209,6 @@ function Delivery() {
                                 <tr key={row.id} style={{ borderBottom: '1px solid #f0f0f0', backgroundColor: i % 2 === 0 ? 'white' : '#fafafa' }}>
                                     <td style={{ padding: '10px 12px' }}>{i + 1}</td>
                                     <td style={{ padding: '10px 12px', color: '#0d6efd', fontWeight: 'bold' }}>{row.orderId}</td>
-                                    <td style={{ padding: '10px 12px' }}>{row.customer}</td>
-                                    <td style={{ padding: '10px 12px' }}>{row.area}</td>
-                                    <td style={{ padding: '10px 12px' }}>{row.date}</td>
-                                    <td style={{ padding: '10px 12px' }}>{row.items}</td>
                                     <td style={{ padding: '10px 12px', fontWeight: 'bold' }}>৳ {row.amount.toLocaleString()}</td>
                                     <td style={{ padding: '10px 12px' }}>{statusBadge(row.status)}</td>
                                     <td style={{ padding: '10px 12px' }}>
