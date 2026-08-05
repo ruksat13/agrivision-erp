@@ -85,6 +85,7 @@ function App() {
                 }}>
                   <Navbar onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
                   <div style={{ padding: '24px' }}>
+                    <ProtectedRoute requirePermission>
                     <Routes>
                       <Route path="/" element={<Dashboard />} />
                       <Route path="/sales" element={<Sales type="Sales" />} />
@@ -182,6 +183,7 @@ function App() {
                       <Route path="/company-profile" element={<Settings type="Company Profile" />} />
                       <Route path="/configuration" element={<Settings type="Configuration" />} />
                     </Routes>
+                    </ProtectedRoute>
                   </div>
                 </div>
 
