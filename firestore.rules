@@ -1,0 +1,198 @@
+rules_version = '2';
+
+// AgriVision ERP — Firestore Security Rules
+// Implements the access matrix in docs/PROJECT-OUTLINE.md §4, as outlined in
+// docs/FIRESTORE-SCHEMA.md §7. These enforce on the server; the route guard in
+// ProtectedRoute.js only shapes the UI.
+//
+// ──────────────────────────────────────────────────────────────────────────
+// DO NOT DEPLOY THESE YET.
+//
+// Every rule below reads the caller's profile from users/{uid}. Until Firebase
+// Auth is connected and the users collection is seeded, that document does not
+// exist, so these rules deny everything — including the seed script.
+//
+// Deploy order (schema §11):
+//   step 1   development rules (below, commented out) → seed the database
+//   step 5   connect Firebase Auth, seed users/
+//   step 10  deploy this file
+//
+//   firebase deploy --only firestore:rules
+// ──────────────────────────────────────────────────────────────────────────
+//
+// Development rules for step 1 — paste into the console's Rules tab, or
+// temporarily swap them in here. The date makes them expire on their own so
+// the database is not left open after the submission.
+//
+//   rules_version = '2';
+//   service cloud.firestore {
+//     match /databases/{database}/documents {
+//       match /{document=**} {
+//         allow read, write: if request.time < timestamp.date(2026, 9, 15);
+//       }
+//     }
+//   }
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helpers ──────────────────────────────────────────────────────────
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function profile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function role() {
+      return profile().role;
+    }
+
+    function active() {
+      return signedIn() && profile().status == 'Active';
+    }
+
+    // Full visibility across every office
+    function isAdmin() {
+      return active() && role() in ['Super Admin', 'Managing Director'];
+    }
+
+    function isSuperAdmin() {
+      return active() && role() == 'Super Admin';
+    }
+
+    // An Area Manager sees only their own area
+    function myArea(areaId) {
+      return active() && role() == 'Area Manager' && profile().areaId == areaId;
+    }
+
+    // A Sales Officer sees only records they own. The officerId stored on
+    // customers, sales and sale_items is the officer's own uid.
+    function mine(officerId) {
+      return active() && role() == 'Sales Officer' && request.auth.uid == officerId;
+    }
+
+    function hasRole(roles) {
+      return active() && role() in roles;
+    }
+
+    // Reject a write that tries to change a field it must not touch
+    function unchanged(field) {
+      return request.resource.data[field] == resource.data[field];
+    }
+
+    // ── Master data ──────────────────────────────────────────────────────
+    // Readable by anyone signed in: the sale rules need product categories and
+    // the invoice needs product names.
+
+    match /products/{productId} {
+      allow read:   if active();
+      allow create, update: if isSuperAdmin();
+      allow delete: if false;                       // deactivate instead
+    }
+
+    match /customers/{customerId} {
+      allow read:   if isAdmin()
+                    || myArea(resource.data.areaId)
+                    || mine(resource.data.officerId)
+                    || hasRole(['Accountant']);
+      allow create: if isSuperAdmin() || hasRole(['Area Manager', 'Sales Officer']);
+      allow update: if isSuperAdmin()
+                    || myArea(resource.data.areaId)
+                    || mine(resource.data.officerId)
+                    // the ledger owns the balance; a screen must not set it directly
+                    || (hasRole(['Accountant']) && unchanged('creditLimit'));
+      allow delete: if false;
+    }
+
+    // Licences are readable by anyone signed in because the point-of-sale rule
+    // has to check them (Feature 1).
+    match /licences/{licenceId} {
+      allow read:   if active();
+      allow create, update: if isSuperAdmin() || hasRole(['Area Manager', 'Accountant']);
+      allow delete: if false;
+    }
+
+    // ── Sales ────────────────────────────────────────────────────────────
+
+    match /sales/{invoiceNo} {
+      allow read:   if isAdmin()
+                    || myArea(resource.data.areaId)
+                    || mine(resource.data.officerId)
+                    || hasRole(['Accountant']);
+
+      // An officer may only raise an order in their own name
+      allow create: if isAdmin()
+                    || hasRole(['Area Manager'])
+                    || (hasRole(['Sales Officer']) && request.resource.data.officerId == request.auth.uid);
+
+      // A confirmed invoice is not editable by the officer who raised it —
+      // PROJECT-OUTLINE.md §3.4: they must request cancellation from the Area Manager
+      allow update: if isAdmin() || myArea(resource.data.areaId);
+
+      allow delete: if false;                       // cancel, never delete
+    }
+
+    // sale_items carry their own denormalised officerId/areaId, so they scope
+    // without reading the parent sale.
+    match /sale_items/{itemId} {
+      allow read:   if isAdmin()
+                    || myArea(resource.data.areaId)
+                    || mine(resource.data.officerId)
+                    || hasRole(['Accountant']);
+      allow create: if isAdmin()
+                    || hasRole(['Area Manager'])
+                    || (hasRole(['Sales Officer']) && request.resource.data.officerId == request.auth.uid);
+      allow update, delete: if false;               // a line is never edited in place
+    }
+
+    // ── Stock ────────────────────────────────────────────────────────────
+    // Append-only. This is what makes the stock figure trustworthy: it can be
+    // added to, never rewritten.
+
+    match /stock_movements/{movementId} {
+      allow read:   if isAdmin() || hasRole(['Storekeeper', 'Accountant', 'Area Manager', 'Sales Officer']);
+      allow create: if isAdmin() || hasRole(['Storekeeper', 'Sales Officer', 'Area Manager']);
+      allow update, delete: if false;
+    }
+
+    // ── Users ────────────────────────────────────────────────────────────
+
+    match /users/{uid} {
+      allow read:   if isSuperAdmin() || (signedIn() && request.auth.uid == uid);
+      allow create, update: if isSuperAdmin();
+      allow delete: if false;
+    }
+
+    // ── Audit log ────────────────────────────────────────────────────────
+    // Append-only, and nobody may amend it — including a Super Admin
+    // (PROJECT-OUTLINE.md §3.1). An override must carry a written reason.
+
+    match /audit_log/{entryId} {
+      allow read:   if isAdmin() || hasRole(['Accountant']);
+      allow create: if active()
+                    && request.resource.data.userId == request.auth.uid
+                    && (request.resource.data.action != 'rule_override'
+                        || (request.resource.data.reason is string
+                            && request.resource.data.reason.size() > 0));
+      allow update, delete: if false;
+    }
+
+    // ── Counters ─────────────────────────────────────────────────────────
+    // Invoice numbering. Anyone who may raise a sale must be able to advance it.
+
+    match /counters/{name} {
+      allow read, write: if isAdmin() || hasRole(['Area Manager', 'Sales Officer', 'Storekeeper']);
+    }
+
+    // ── Everything else ──────────────────────────────────────────────────
+    // Tier 2 collections are not migrated yet (schema §10). Denying by default
+    // means a collection added later is closed until a rule is written for it.
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

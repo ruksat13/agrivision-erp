@@ -1,0 +1,156 @@
+{
+  "//": "Composite indexes from docs/FIRESTORE-SCHEMA.md §6. Firestore creates single-field indexes on its own; only these have to be declared. Deploy with: firebase deploy --only firestore:indexes",
+  "indexes": [
+    {
+      "//": "Sales Officer's own list; Officer Wise Sales",
+      "collectionGroup": "sales",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "officerId", "order": "ASCENDING" },
+        { "fieldPath": "saleDate", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "//": "Area Manager scoping; Area Wise Sales",
+      "collectionGroup": "sales",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "areaId", "order": "ASCENDING" },
+        { "fieldPath": "saleDate", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "//": "The eight status tabs; Cancel Sales",
+      "collectionGroup": "sales",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "saleDate", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "//": "Customer Wise Sales; the customer ledger",
+      "collectionGroup": "sales",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "customerId", "order": "ASCENDING" },
+        { "fieldPath": "saleDate", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "//": "Officer's list filtered by status",
+      "collectionGroup": "sales",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "officerId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "saleDate", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "//": "Products Sales Report",
+      "collectionGroup": "sale_items",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "productId", "order": "ASCENDING" },
+        { "fieldPath": "saleDate", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "//": "Invoice line ordering",
+      "collectionGroup": "sale_items",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "saleId", "order": "ASCENDING" },
+        { "fieldPath": "lineNo", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "//": "Territory Wise Product Sales",
+      "collectionGroup": "sale_items",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "territoryId", "order": "ASCENDING" },
+        { "fieldPath": "saleDate", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "//": "Stock Report and Central Stock",
+      "collectionGroup": "stock_movements",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "productId", "order": "ASCENDING" },
+        { "fieldPath": "officeId", "order": "ASCENDING" },
+        { "fieldPath": "movedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "//": "The dashboard expiry panel; the compliance report",
+      "collectionGroup": "licences",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "scope", "order": "ASCENDING" },
+        { "fieldPath": "expiryDate", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "//": "The Feature 1 lookup — the hot path on every order line",
+      "collectionGroup": "licences",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "holderId", "order": "ASCENDING" },
+        { "fieldPath": "licenceType", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "//": "'Show me the overrides' during the demonstration",
+      "collectionGroup": "audit_log",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "action", "order": "ASCENDING" },
+        { "fieldPath": "at", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "//": "Per-record history",
+      "collectionGroup": "audit_log",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "collection", "order": "ASCENDING" },
+        { "fieldPath": "docId", "order": "ASCENDING" },
+        { "fieldPath": "at", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "//": "Dealer lists scoped to an area",
+      "collectionGroup": "customers",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "areaId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "name", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "//": "An officer's own dealers",
+      "collectionGroup": "customers",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "officerId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "name", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "//": "Product lists filtered by category",
+      "collectionGroup": "products",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "category", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "name", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}
