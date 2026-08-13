@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const COMPANY = {
     name: 'Agrivision International',
@@ -278,6 +279,7 @@ function ActionBtn({ bg, children, title, onClick }) {
 }
 
 function Sales({ type = 'Sales' }) {
+    const navigate = useNavigate();
     const [dataByStatus, setDataByStatus] = useState(buildInitialData);
     const [activeStatus, setActiveStatus] = useState('Pending');
     const [searched, setSearched] = useState({});
@@ -426,7 +428,8 @@ function Sales({ type = 'Sales' }) {
                             {showDeliveryMan && <th style={{ padding: '12px', textAlign: 'left' }}>Delivery Man</th>}
                             {showChangeStatus && <th style={{ padding: '12px', textAlign: 'left' }}>Change Status</th>}
                             <th style={{ padding: '12px', textAlign: 'left', whiteSpace: 'nowrap' }}>
-                                Action <button style={{ background: '#28a745', color: 'white', border: 'none', borderRadius: '4px', padding: '2px 8px', fontSize: '11px', cursor: 'pointer', marginLeft: '4px' }}>+ Add</button>
+                                Action <button onClick={() => navigate('/sales-entry')} title="Create a new sales order"
+                                    style={{ background: '#28a745', color: 'white', border: 'none', borderRadius: '4px', padding: '2px 8px', fontSize: '11px', cursor: 'pointer', marginLeft: '4px' }}>+ Add</button>
                             </th>
                         </tr>
                     </thead>

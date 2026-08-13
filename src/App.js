@@ -4,6 +4,7 @@ import Sidebar from './components/Sidebar';
 import Navbar from './components/Navbar';
 import Dashboard from './pages/Dashboard';
 import Sales from './pages/Sales';
+import SalesEntry from './pages/SalesEntry';
 import SalesReturn from './pages/SalesReturn';
 import CancelSales from './pages/CancelSales';
 import Damage from './pages/Damage';
@@ -89,6 +90,7 @@ function App() {
                     <Routes>
                       <Route path="/" element={<Dashboard />} />
                       <Route path="/sales" element={<Sales type="Sales" />} />
+                      <Route path="/sales-entry" element={<SalesEntry />} />
                       <Route path="/sales-return" element={<SalesReturn />} />
                       <Route path="/cancel-sales" element={<CancelSales />} />
                       <Route path="/damage" element={<Damage />} />

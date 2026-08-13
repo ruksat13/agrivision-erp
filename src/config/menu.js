@@ -3,6 +3,7 @@ export const menuItems = [
     { name: 'Dashboard', path: '/', icon: '📊' },
     {
         name: 'Sales', icon: '🛒', children: [
+            { name: 'New Sales Order', path: '/sales-entry' },
             { name: 'Sales', path: '/sales' },
             { name: 'Sales Return', path: '/sales-return' },
             { name: 'Cancel Sales', path: '/cancel-sales' },
