@@ -2,9 +2,12 @@
 /**
  * Seed the Firestore database with the sample data already present in the pages.
  *
- *   node scripts/seed.mjs            # write the seed data
- *   node scripts/seed.mjs --wipe     # clear the seeded collections first
- *   node scripts/seed.mjs --dry      # print what would be written, write nothing
+ *   node scripts/seed.mjs             # write to the real project
+ *   node scripts/seed.mjs --emulator  # write to the local emulator instead
+ *   node scripts/seed.mjs --wipe      # clear the seeded collections first
+ *   node scripts/seed.mjs --dry       # print what would be written, write nothing
+ *
+ * Start the emulator first with:  npm run emulators
  *
  * Run it once, before the screens are wired up. It is safe to re-run with
  * --wipe; without --wipe it will refuse to overwrite an existing sale.
@@ -19,7 +22,7 @@
 import { initializeApp } from 'firebase/app';
 import {
     getFirestore, collection, doc, getDocs, writeBatch,
-    Timestamp, serverTimestamp,
+    connectFirestoreEmulator, Timestamp, serverTimestamp,
 } from 'firebase/firestore';
 
 import {
@@ -42,8 +45,14 @@ const firebaseConfig = {
 const args = process.argv.slice(2);
 const WIPE = args.includes('--wipe');
 const DRY = args.includes('--dry');
+const EMULATOR = args.includes('--emulator') || process.env.FIRESTORE_EMULATOR === '1';
 
 const db = getFirestore(initializeApp(firebaseConfig));
+if (EMULATOR) {
+    // Port matches firebase.json. The emulator ignores Security Rules by
+    // default, so seeding needs no rules change.
+    connectFirestoreEmulator(db, '127.0.0.1', 8080);
+}
 
 const COLLECTIONS = ['products', 'customers', 'licences', 'sales', 'sale_items', 'stock_movements', 'users', 'audit_log', 'counters'];
 
@@ -398,7 +407,8 @@ function seedAuditEntry(counts) {
 // ── Run ───────────────────────────────────────────────────────────────────
 
 async function main() {
-    console.log(`\nAgriVision seed → project "${firebaseConfig.projectId}"${DRY ? '  (dry run)' : ''}\n`);
+    const target = EMULATOR ? 'EMULATOR at 127.0.0.1:8080' : `project "${firebaseConfig.projectId}"`;
+    console.log(`\nAgriVision seed → ${target}${DRY ? '  (dry run)' : ''}\n`);
 
     if (WIPE && !DRY) await wipe();
     else if (!DRY) await assertEmpty();

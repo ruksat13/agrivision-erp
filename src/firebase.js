@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { getAuth, connectAuthEmulator } from "firebase/auth";
+import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
 
 // Firebase web config is public by design (security comes from Firestore Rules,
 // not from hiding these). Env vars are used when set, with a literal fallback so
@@ -17,4 +17,16 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+
+// Point at the local emulator when REACT_APP_USE_EMULATOR=true. Ports match
+// firebase.json. Lets the whole app be exercised without touching the real
+// project — start it with `npm run start:emulator`.
+export const usingEmulator = process.env.REACT_APP_USE_EMULATOR === 'true';
+if (usingEmulator) {
+    connectFirestoreEmulator(db, '127.0.0.1', 8080);
+    connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
+    // eslint-disable-next-line no-console
+    console.info('[firebase] using local emulators — Firestore :8080, Auth :9099');
+}
+
 export default app;
