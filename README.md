@@ -1,70 +1,157 @@
-# Getting Started with Create React App
+# AgriVision ERP
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Enterprise resource planning for an agricultural input (fertiliser, pesticide, seed)
+distribution business in Bangladesh. React 19 + Firebase Firestore.
 
-## Available Scripts
+What makes it different from a general ERP is a rule engine at the point of sale:
+it refuses a sale to a dealer whose government licence has lapsed, and refuses a
+product whose registration has been withdrawn. See [`docs/UNIQUE-FEATURES.md`](docs/UNIQUE-FEATURES.md).
 
-In the project directory, you can run:
+| Document | What is in it |
+|---|---|
+| [`docs/PROJECT-OUTLINE.md`](docs/PROJECT-OUTLINE.md) | Scope, users, access matrix, business flows |
+| [`docs/UNIQUE-FEATURES.md`](docs/UNIQUE-FEATURES.md) | The features being claimed, and why |
+| [`docs/FIRESTORE-SCHEMA.md`](docs/FIRESTORE-SCHEMA.md) | The data model — read this before writing a query |
+| [`docs/SCREEN-AUDIT.md`](docs/SCREEN-AUDIT.md) | What each screen actually does today |
+| [`src/services/README.md`](src/services/README.md) | **How to read and write data — read this before building a screen** |
 
-### `npm start`
+---
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+## Getting started
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+```bash
+npm install
+```
 
-### `npm test`
+### Working locally, with a database
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+The Firebase project lives on one team member's account. **You do not need access
+to it to work on the app** — everything runs against the local emulator.
 
-### `npm run build`
+Two terminals.
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+**Terminal 1 — the database:**
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+```bash
+npm run dev:reset
+```
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+That single command starts the Firestore and Auth emulators, loads development
+security rules, wipes whatever was there, seeds 240 documents and verifies them.
+It takes about twenty seconds and then stays in the foreground.
 
-### `npm run eject`
+**Terminal 2 — the app:**
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+```bash
+npm run start:emulator
+```
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+Opens on http://localhost:3000, pointed at the emulator. Log in with
+`akib@agrivision.com` / `123456`.
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+> **The emulator keeps nothing on disk.** Close that first terminal, or restart
+> your machine, and the data is gone. Run `npm run dev:reset` again — that is
+> what it is for. Do not go looking for what broke.
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+### Working without a database
 
-## Learn More
+```bash
+npm start
+```
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+Runs against the real Firebase project. Unless you have been given access, every
+read is refused and the screens that use the service layer show an empty state
+with a notice saying so. That is deliberate — see
+[`src/pages/SalesEntry.js`](src/pages/SalesEntry.js) for how a screen is expected
+to behave when there is no data.
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+---
 
-### Code Splitting
+## Every script
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+| Command | What it does |
+|---|---|
+| `npm start` | Dev server against the real Firebase project |
+| `npm run start:emulator` | Dev server against the local emulator |
+| **`npm run dev:reset`** | **Emulator + dev rules + seed + verify, in one command** |
+| `npm run dev:reset -- --no-seed` | Emulator and dev rules only, no data |
+| `npm run dev:reset -- --keep` | Do not wipe first |
+| `npm run emulators` | Just the emulators, nothing else |
+| `npm run emulator:rules dev` | Load permissive rules into a running emulator |
+| `npm run emulator:rules real` | Load the production rules into a running emulator |
+| `npm run seed:emulator` | Wipe and re-seed a running emulator |
+| `npm run seed` | Seed the **real** project (needs console access and dev rules) |
+| `npm run verify:emulator` | Count documents and check the invariants |
+| `npm run build` | Production build |
+| `npm test` | Test runner |
 
-### Analyzing the Bundle Size
+---
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+## What the seed gives you
 
-### Making a Progressive Web App
+240 documents: 24 products, 30 dealers, 26 licences, 17 invoices with their lines,
+12 users and opening stock across three offices. The dealers and invoices are
+lifted from the sample arrays already in the pages, so the data looks real.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+It is arranged so the two features can be demonstrated immediately:
 
-### Advanced Configuration
+| To show | Use |
+|---|---|
+| Licence block (Feature 1) | dealer `AIC-000001` — pesticide licence expired 15 days ago — plus any pesticide |
+| A licence expiring soon | `AIC-000004` (4 days), `AIC-000005` (20 days) |
+| A dealer with no licence at all | `AIC-000006` |
+| Banned product block (Feature 2) | `AI-000905` or `AI-000906` — banned, and **not overridable** |
+| A sale that passes cleanly | any dealer from `AIC-000007` onward with a fertiliser line |
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+Two things the seed does **not** invent, both explained at the top of
+[`scripts/seed-data.mjs`](scripts/seed-data.mjs): product safety data is `null`
+everywhere, and `bannedAuthority` is a placeholder pending a real DAE reference.
 
-### Deployment
+---
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+## Security rules
 
-### `npm run build` fails to minify
+[`firestore.rules`](firestore.rules) holds the production rules.
+**They are not deployable yet** — every rule reads the caller's profile from
+`users/{uid}`, which does not exist until Firebase Auth is connected, so they
+currently deny everything including the seed script. The file header explains
+the sequence. That is why `dev:reset` swaps in permissive rules over the
+emulator's admin API rather than editing the file.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+To try the real rules against the emulator:
+
+```bash
+npm run emulator:rules real     # unauthenticated reads are now refused
+npm run emulator:rules dev      # back to permissive
+```
+
+Deploying, once there is console access:
+
+```bash
+npx firebase deploy --only firestore:rules,firestore:indexes
+```
+
+---
+
+## Layout
+
+```
+src/
+  services/     Firestore layer — one file per collection. Screens import from here.
+  rules/        The point-of-sale rule engine. Adding a rule is a file plus one line.
+  pages/        Screens. SalesEntry.js is the one that creates a sale.
+  config/       menu.js — the menu tree, and the source of the permission list
+scripts/        Seeding, verification and the emulator harness
+docs/           Specifications and the audit
+```
+
+Adding a rule to the sale engine — the whole change:
+
+```js
+// src/rules/myRule.js
+export function myRule({ lines, saleDate }) { /* return blocks or [] */ }
+
+// src/rules/checkSaleRules.js
+import { myRule } from './myRule';
+const RULES = [licenceRule, bannedRule, myRule];
+```
