@@ -36,29 +36,22 @@
 //
 // Add a rule here and nowhere else. Each entry is
 //   (context) => RuleResult | RuleResult[] | null      (may be async)
+
+import { licenceRule } from './licenceRule';   // Feature 1 — dealer licence
+import { bannedRule } from './bannedRule';     // Feature 2 — withdrawn registration
+
+// Still to come:
 //
-// Feature 1 — dealer licence        owner B
-//   import { licenceRule } from './licenceRule';
-//   The check itself already exists in the service layer as
-//   licenceCheckFor(licences, product, saleDate) — the rule file is a loop
-//   over context.lines calling it.
+// Feature 4 — expired stock: cut from this submission. Batch.js is a bill of
+//   materials and carries no lot identity to hang an expiry date on.
 //
-// Feature 2 — banned product        owner C
-//   import { bannedRule } from './bannedRule';
-//   isBannedOn(product, saleDate) in services/products.js does the comparison.
-//   Compare against context.saleDate, never today: a sale dated before the ban
-//   is still lawful and must still save.
-//
-// Feature 4 — expired stock         cut from this submission
-//
-// Credit limit is not claimed as a contribution (UNIQUE-FEATURES.md §4) but is
-// table stakes; creditLimitCheck() in services/customers.js already returns a
-// RuleResult, so it drops straight in.
+// Credit limit: not claimed as a contribution (UNIQUE-FEATURES.md §4) because
+//   every ERP has it, but creditLimitCheck() in services/customers.js already
+//   returns a RuleResult, so it drops straight in when wanted.
 
 const RULES = [
-    // licenceRule,
-    // bannedRule,
-    // creditLimitRule,
+    licenceRule,
+    bannedRule,
 ];
 
 // ── Running them ──────────────────────────────────────────────────────────
