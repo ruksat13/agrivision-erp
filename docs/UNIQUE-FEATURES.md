@@ -104,6 +104,15 @@ Weeks 1–3 finish on schedule.
 
 ### Feature 1 — Dealer Licence Compliance Enforcement
 
+**Status: IMPLEMENTED (15 August 2026).** Verified end to end against the local
+emulator. `src/rules/licenceRule.js`, hung on the engine in
+`src/rules/checkSaleRules.js`, applied by `src/pages/SalesEntry.js`.
+
+Of the six parts listed below, 1, 2, 4 and 5 are built and tested. Part 3 (the
+dashboard panel) and part 6 (the compliance report) have their queries in the
+service layer — `expirySummary()` and `complianceReport()` in
+`src/services/licences.js` — but no screen renders them yet.
+
 **Build this first.**
 
 **The problem.** Selling pesticide, and separately selling fertiliser, requires the buyer to hold a
@@ -136,11 +145,33 @@ anyway.
 **Demonstration:** attempt a pesticide sale to a dealer whose licence expired yesterday. The sale is
 refused on screen. Fifteen seconds, no explanation required.
 
+**As built, on the seeded data:** dealer `AIC-000001`, whose pesticide licence
+expired 15 days ago, plus any pesticide line. The screen refuses it with
+*"Pesticide licence PL-2026-1000 expired on 2026-07-31 — Smartzeb 80 Wp 100 Gm
+cannot be supplied."* and disables Save. Overriding requires typing a reason —
+the button stays disabled until one is present — after which the sale saves and
+the reason appears both on the invoice (`sales.ruleChecks`) and as a
+`rule_override` row in `audit_log`. A fertiliser line to the same dealer passes,
+because their fertiliser registration is in date.
+
 **Legal basis:** see §7. **Risk:** low.
 
 ---
 
 ### Feature 2 — Banned and De-registered Product Block
+
+**Status: IMPLEMENTED (15 August 2026).** `src/rules/bannedRule.js`, one file and
+one line in the registry — it took under an hour, as this section predicted.
+Parts 1, 2 and 3 below are built and tested. Part 4, the printable register of
+banned products, has its query (`listBannedProducts()`) but no screen.
+
+**One thing was decided during implementation and is worth defending explicitly:
+this block is not overridable.** Feature 1's is. A lapsed licence is an
+administrative lapse an Area Manager can take responsibility for; a withdrawn
+registration is a legal prohibition and nobody in the company can authorise it.
+The contrast between the two is visible on screen — the licence block carries an
+Override button, the ban does not — and it is the sharpest thing in the
+demonstration.
 
 **The problem.** Pesticide registrations are withdrawn and active ingredients are banned from a
 stated date. Stock already in the channel must stop moving, but historic transactions remain valid.

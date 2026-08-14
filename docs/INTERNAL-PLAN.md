@@ -213,12 +213,46 @@ like a team where one person wrote everything.
 
 Agree these in advance, while nobody is panicking. Each line is a date and a decision.
 
-| Date | If this is not true… | …then cut |
-|---|---|---|
-| 13 Aug | A sale can be created and survives a browser refresh | Stop all feature work. Everyone on persistence. Nothing else matters |
-| 20 Aug | Feature 1 blocks a sale on screen, override logged | Drop Feature 4 permanently. Do not attempt it |
-| 27 Aug | Features 1–3 pass a clean run-through | Drop Feature 4. Spend Week 4 on the report and rehearsal |
-| **30 Aug** | — | **Hard freeze. No new feature code after this date, for any reason** |
+| Date | If this is not true… | …then cut | Status |
+|---|---|---|---|
+| 13 Aug | A sale can be created and survives a browser refresh | Stop all feature work. Everyone on persistence. Nothing else matters | ✅ **MET 15 Aug** |
+| 20 Aug | Feature 1 blocks a sale on screen, override logged | Drop Feature 4 permanently. Do not attempt it | ✅ **MET 15 Aug** |
+| 27 Aug | Features 1–3 pass a clean run-through | Drop Feature 4. Spend Week 4 on the report and rehearsal | Feature 3 outstanding |
+| **30 Aug** | — | **Hard freeze. No new feature code after this date, for any reason** | — |
+
+**Progress note, 15 August.** The first two cut-lines are cleared, the second one
+five days early.
+
+- *13 Aug line.* Cleared on 15 August, two days late but cleared. `SalesEntry.js`
+  creates an order through the service layer; it was saved as
+  `AINV-2026-08-0034676`, read back from the database, and the stock movement and
+  dealer balance both moved with it. Verified against the local emulator rather
+  than the real project — see the access note below.
+- *20 Aug line.* Cleared the same day. Feature 1 refuses a pesticide line for a
+  dealer whose licence lapsed 15 days ago, an Area Manager override requires a
+  written reason before the button enables, and the override lands both on
+  `sales.ruleChecks` and as a `rule_override` row in `audit_log`. Feature 2 came
+  with it and is deliberately **not** overridable.
+
+**Feature 4 is dropped**, as this table always said it would be if the 20 Aug line
+had slipped. It has not slipped — but the reasoning in `UNIQUE-FEATURES.md` §5
+still holds independently: `Batch.js` is a bill of materials with no lot identity,
+so expiry tracking is a data-model change across the whole application. The
+`lotNo`, `mfgDate` and `expiryDate` fields are reserved in the schema so picking
+it up later needs no migration.
+
+**What is actually left before 30 Aug:** Feature 3 (the Bengali safety panel,
+~1.5 d, and blocked on authoring the safety data — see `FIRESTORE-SCHEMA.md` §9.3),
+Firebase Auth (step 5 of the migration order), and the deployment of the real
+security rules (step 10).
+
+> **Access risk, and it is the live one.** The Firebase project is on one team
+> member's account and nobody else has console access, so the real database is
+> still empty and the production rules have never been deployed. Everything above
+> was verified against the local emulator, which `npm run dev:reset` brings up in
+> one command. That is a genuine substitute for development, but **the rules and
+> the seed have to be run against the real project before the demonstration**, and
+> that cannot start until access is granted. Chase it now, not in Week 4.
 
 **The rule behind the rule:** two features demonstrated flawlessly beat four demonstrated shakily.
 An examiner remembers a crash far longer than a missing feature they were never told to expect.
