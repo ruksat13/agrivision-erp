@@ -59,6 +59,39 @@ styled as active. Pressing it has no effect whatsoever.
 **Before or after Firestore:** **After — in the same pass as Firestore.** Wiring these to local
 `setState` now means writing all fourteen handlers twice. Attach `db.add()` directly.
 
+### 2.1.1 The order to do them in
+
+**None of the fourteen can be done with the Tier 1 collections alone.** Tier 1 is
+`products`, `customers`, `licences`, `sales`, `sale_items`, `stock_movements`, `users`
+and `audit_log`. Every one of these screens needs somewhere to put its own records — a
+purchase, an expense, an offer, a bill of materials — and none of those exist yet. That
+includes `CustomerOpeningBalance`: adjusting `customers.balance` is a Tier 1 write, but
+the screen lists individual entries with their own dates and notes, so the entries need
+a collection of their own.
+
+So the work is not "wire up a Save button". For each screen it is: define the collection
+(most are already specified in `FIRESTORE-SCHEMA.md` §10), add a service module beside
+`products.js`, point the page at it, then wire Save. **`Product.js` is the worked example
+of exactly that sequence** — it was not one of these fourteen, but it made the same
+journey from a hardcoded array to Firestore, and its shape is the one to copy.
+
+Ordered by dependency and cost, cheapest and least entangled first:
+
+| Group | Screens | Collection | Why here |
+|---|---|---|---|
+| **A** | ExpenseHead | `expense_heads` | One field. Do this first — it is the smallest possible run through the whole pattern |
+| | BankAccount | `bank_accounts` | Four fields, no references |
+| | Offers | `offers` | Self-contained |
+| | ProductDemand | `product_demands` | Self-contained. Also fix the shared `demandItems` array (§4.3) while here |
+| **B** | SupplierOpeningBalance · SupplierPayment · SupplierCommission | `opening_balances`, `supplier_payments`, `commissions` | **All three need `suppliers` first** — build that master before any of them, the same way `customers` works |
+| **C** | CustomerOpeningBalance · CustomerCommission | `opening_balances`, `commissions` | Reference `customers`, which is already Tier 1 — so easier than group B |
+| | Expense | `expenses` | Needs `expense_heads` from group A |
+| **D** | Purchase · PurchaseReturn · Batch · Repacking | `purchases` + `purchase_items`, `purchase_returns`, `boms`, `repackings` | These write `stock_movements`. Most valuable — group D is what lets Stock Report drop its hardcoded strings — and most work. Leave until last |
+
+Eleven of the fourteen already have their shape in `FIRESTORE-SCHEMA.md` §10. The three
+that did not — `bank_accounts`, `purchase_returns` and `opening_balances` — were added
+there on 16 August. Anything else new goes into §10 first, then into code.
+
 ### 2.2 A button exists, but no form is rendered
 
 | File and line | Detail |
@@ -359,7 +392,7 @@ Updated 15 August 2026. Findings above are struck through where they no longer h
 | §4.1 — selling does not reduce stock | **Resolved for orders raised on the new screen.** `createSale()` writes the movement in the same batch. Stock Report still renders its hardcoded strings |
 | §4.2 — two worlds of *product* master data | **Resolved.** `Product.js` reads Firestore; the `SKU-T100` array is gone |
 | §4.2 — two worlds of *customer* and *employee* data | Outstanding. Same change, same pattern |
-| §2.1 — 14 dead Save buttons | Outstanding. `Product.js` is the first of them wired up |
+| §2.1 — 14 dead Save buttons | Outstanding, none wired yet. `Product.js` is **not** one of the 14 — its Save already worked, it just wrote to local state; it is the pattern to copy. Ordering in §2.1.1 |
 | §5 — 38 of 40 reports identical | Outstanding; decision 1 above stands |
 
 Two things not in the original audit, found while doing the work and worth recording:

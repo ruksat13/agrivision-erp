@@ -606,12 +606,15 @@ sample data for this submission, and the written report says so.
 | `suppliers` | name, code, phone, address, balance, status | `Supplier.js:3` |
 | `purchases` | purchaseNo, supplierId, invoiceNo, purchaseDate, amount, status, officeId | `Purchase.js:33` |
 | `purchase_items` | purchaseId, productId, qty, unitPrice, lineTotal, *(`lotNo`, `mfgDate`, `expiryDate` for Feature 4)* | `Purchase.js:89` (currently one hardcoded row) |
+| `purchase_returns` | returnNo, purchaseId, supplierId, returnDate, reason, amount, status, note | `PurchaseReturn.js`. Writes `purchase_return` movements |
 | **`boms`** | bomNo, productId, items[{productId, ratio}], effectiveFrom | `Batch.js:8` — **renamed from "Batch"**, see decision 2 in `SCREEN-AUDIT.md` §7 |
 | `repackings` | repackNo, bomId, outputProductId, qty, cartonQty, status, note | `Repacking.js:21`. Writes `repack_in` / `repack_out` movements |
 | `offers` | code, name, buy{}, gift{}, paymentTypes[], startDate, endDate, status, noteBn | `Offers.js:14` |
 | `expenses`, `expense_heads` | headId, amount, date, receivedBy, status, note | `Expense.js`, `ExpenseHead.js:6` |
 | `collections` | mrn, customerId, officerId, amount, paymentType, collectedAt, status | `CashCollection.js` |
 | `supplier_payments` | supplierId, amount, paymentType, date, status | `SupplierPayment.js` |
+| `bank_accounts` | name, number, bank, branch, status | `BankAccount.js:6` |
+| **`opening_balances`** | **`party`** (`customer` \| `supplier`), `partyId`, partyName *(denorm)*, type, amount, date, status, note | `CustomerOpeningBalance.js:11`, `SupplierOpeningBalance.js`. **One collection for both**, following D4 — the same reason `licences` uses `scope` rather than splitting in two. Posting an entry also moves the party's `balance` |
 | `commissions` | party (`customer`\|`supplier`), partyId, type, amount, date, status | `CustomerCommission.js`, `SupplierCommission.js` |
 | `sale_returns` | returnNo, saleId, customerId, reason, amount, warehouseInDate, status | `SalesReturn.js`. Writes `sale_return` movements |
 | `damages` | productId, qty, buyPrice, total, reason, officeId | `Damage.js:3`. Writes `damage` movements |
