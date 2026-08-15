@@ -150,7 +150,7 @@ export function summarise(results) {
 // A rule is a plain function. It receives the whole context and returns
 // nothing, one result, or several. Example — this is Feature 2 in full:
 //
-//   import { isBannedOn } from '../services';
+//   import { isBannedOn, formatDate } from '../services';
 //
 //   export function bannedRule({ lines, saleDate }) {
 //       return lines
@@ -160,10 +160,12 @@ export function summarise(results) {
 //               code: 'PRODUCT_BANNED',
 //               productId: product.code,
 //               message: `${product.name} — registration withdrawn from `
-//                      + `${product.bannedFrom.toDate().toISOString().slice(0, 10)}. `
-//                      + `${product.bannedReason}`,
+//                      + `${formatDate(product.bannedFrom)}. ${product.bannedReason}`,
 //               overridable: false,
 //           }));
 //   }
+//
+// Use formatDate() for any date you show — never toISOString(), which reports
+// the previous day at UTC+6.
 //
 // Then add `bannedRule` to RULES above. That is the whole change.

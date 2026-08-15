@@ -16,12 +16,9 @@
 //      before bannedFrom remains valid and must still print. That
 //      date-effective behaviour is the whole point of the feature.
 
-import { isBannedOn, toDate } from '../services';
+import { isBannedOn, formatDate } from '../services';
 
-const asDay = (v) => {
-    const d = toDate(v);
-    return d ? d.toISOString().slice(0, 10) : 'an unstated date';
-};
+const asDay = (v) => formatDate(v) || 'an unstated date';
 
 /**
  * @param {import('./checkSaleRules').SaleContext} context

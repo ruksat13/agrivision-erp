@@ -11,7 +11,7 @@
 export {
     ServiceError,
     setActor, getActor,
-    toTimestamp, toDate, toNumber, money,
+    toTimestamp, toDate, formatDate, toNumber, money,
     listDocs, getById,
 } from './core';
 

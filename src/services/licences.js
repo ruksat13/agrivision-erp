@@ -8,7 +8,7 @@
 import { COL, LICENCE_SCOPE, LICENCE_TYPE, LICENCE_FOR_CATEGORY, RULE_CODE } from './constants';
 import {
     createDoc, updateDoc_, getById, getByIdOrThrow, listDocs,
-    requireFields, assertEnum, toTimestamp, toDate,
+    requireFields, assertEnum, toTimestamp, toDate, formatDate,
 } from './core';
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -172,12 +172,11 @@ export function licenceCheckFor(dealerLicences, product, saleDate = new Date()) 
     if (valid) return null;
 
     const latest = held.reduce((a, b) => (daysToExpiry(a, saleDate) > daysToExpiry(b, saleDate) ? a : b));
-    const expiredOn = toDate(latest.expiryDate);
     return {
         level: 'block',
         code: RULE_CODE.LICENCE_EXPIRED,
         productId: product.code,
-        message: `${needed} licence ${latest.licenceNo} expired on ${expiredOn.toISOString().slice(0, 10)} — ${product.name} cannot be supplied.`,
+        message: `${needed} licence ${latest.licenceNo} expired on ${formatDate(latest.expiryDate)} — ${product.name} cannot be supplied.`,
         overridable: true,
     };
 }

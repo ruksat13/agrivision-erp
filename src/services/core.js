@@ -95,6 +95,22 @@ export function toTimestamp(value) {
     throw new ServiceError('VALIDATION', `Cannot read "${value}" as a date.`);
 }
 
+/**
+ * A date as YYYY-MM-DD in the LOCAL timezone.
+ *
+ * Deliberately not `toISOString().slice(0, 10)`, which converts to UTC first.
+ * At UTC+6 a date entered as 15 August is stored as local midnight and read
+ * back by toISOString() as the 14th. Every date this system displays is a
+ * business date — the day a licence lapses, the day a withdrawal takes effect
+ * — so it has to be the local one. Use this everywhere a date is shown.
+ */
+export function formatDate(value) {
+    const d = toDate(value);
+    if (!d) return '';
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
 /** Timestamp → JS Date, tolerant of nulls and of values that are already Dates. */
 export function toDate(value) {
     if (!value) return null;
