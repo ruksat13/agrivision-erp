@@ -127,23 +127,40 @@ One root cause: **every page owns a hardcoded `const` array and there is no shar
 
 ### 4.1 Stock never moves
 
-- `src/pages/Sales.js:342` — `moveTo()` only changes a status; selling does not reduce stock
+- ~~`src/pages/Sales.js:342` — `moveTo()` only changes a status; selling does not reduce stock~~
+  **Resolved for new orders:** `createSale()` writes a `sale` movement in the same batch as the
+  invoice. The old status workflow on `Sales.js` still only changes a status
 - `src/pages/StockReport.js:22-38` — stock values are hardcoded **strings** (`'917'`, `'7927'`,
-  `'912/24\n38'`), not computed numbers
-- `src/pages/Product.js:4` — a second, unrelated `stock` field on the product master
+  `'912/24\n38'`), not computed numbers. `stockReport()` in `src/services/stock.js` computes the
+  real figures from the ledger; the screen does not read it yet
+- ~~`src/pages/Product.js:4` — a second, unrelated `stock` field on the product master~~
+  **Resolved** — products carry no stock field; stock is the sum of `stock_movements`
 - Purchase, Repacking, Damage, SalesReturn and PurchaseReturn never touch stock either
 
 ### 4.2 Two disjoint worlds of master data
 
+> **Products: RESOLVED, 15 August 2026.** `Product.js` no longer holds its own array —
+> it reads the real catalogue through `listProducts()`, and `SalesEntry.js` reads the
+> same one. The five `SKU-T100` products are gone. World 2 was kept and given the
+> `category` field World 1 had, per decision D1 in `FIRESTORE-SCHEMA.md` §3; the seeded
+> catalogue is 24 products under the `AI-000xxx` codes.
+>
+> **Customers and employees are still split.** `Customer.js` continues to hold its own
+> five-row array while the seeded `customers` collection holds 30 dealers under
+> `AIC-xxxxxx`, and the three employee lists remain three lists. `Customer.js` needs the
+> same treatment `Product.js` just had — it is the same change, and the pattern to copy
+> is now in the tree.
+
 | | World 1 — the master pages | World 2 — ~15 transaction pages |
 |---|---|---|
-| Products | `Urea Fertilizer`, `DAP`, `Imidacloprid` — 5 items, `SKU-T100` (`Product.js:4`) | `Smartzeb 80 Wp`, `Agri Zink 1KG`, `Tetop 100 ml` — `AI-000xxx` |
+| Products | ~~`Urea Fertilizer`, `DAP`, `Imidacloprid` — 5 items, `SKU-T100`~~ **resolved — reads Firestore** | `Smartzeb 80 Wp`, `Agri Zink 1KG`, `Tetop 100 ml` — `AI-000xxx` |
 | Customers | `Mr. Rahim Uddin`, `ABC Agency` — 5 items (`Customer.js:3`) | `M/s- Nijhum Traders [AIC-000791]` (`Sales.js:179`, `CustomerLedger.js:7`) |
 | Employees | 5 people (`Employee.js:3`) | 4 in HR (`HR.js:10`), 10 in Employee Account (`EmployeeAccount.js:11`) — three different lists |
 
-**No dropdown reads from a master.** Every option list is a hardcoded string array:
-`Purchase.js:48-49`, `Batch.js:23-24`, `Offers.js:80-81`, `CustomerOpeningBalance.js:35`,
-`Repacking.js:38`.
+**Almost no dropdown reads from a master.** The order screen's product and dealer
+selectors now do (`productOptions()`, `customerOptions()`). Everywhere else the option
+list is still a hardcoded string array: `Purchase.js:48-49`, `Batch.js:23-24`,
+`Offers.js:80-81`, `CustomerOpeningBalance.js:35`, `Repacking.js:38`.
 
 ### 4.3 Detail screens ignore the row that was clicked
 
@@ -168,7 +185,7 @@ One root cause: **every page owns a hardcoded `const` array and there is no shar
 | Stock → Damage | Product name is free text (`Damage.js:110`); damage reduces no stock |
 | Batch → Repacking | `Repacking.js:38` hardcodes three batch options; the twelve batches in `Batch.js` are not read |
 | SMS → SMS Log | Sending an SMS writes nothing to the log (`SMS.js:53`) |
-| Categories → Product | Categories, brands, units and origins added in `Categories.js` never appear in the Product form — it uses free-text inputs (`Product.js:87-92`) |
+| Categories → Product | Categories, brands, units and origins added in `Categories.js` still never appear in the Product form. Category, type and unit now come from the schema enumerations rather than free text, but brand and origin remain free-text — `categories`, `brands` and `origins` are Tier 2 and not migrated |
 | Settings → Invoice | Saving Company Profile only sets a flag (`Settings.js:117`); the invoice header never changes. `COMPANY` is hardcoded in three places: `Sales.js:3`, `Purchase.js:12`, `CancelSales.js:3` |
 | Everything → Dashboard | `Dashboard.js:5-26` — every figure is a hardcoded string. The year and month selects (`:214-216`) filter nothing. The "More" and "View" buttons have no `onClick` (`:365`, `:380`) |
 
@@ -328,3 +345,34 @@ Recorded 13 August 2026.
    collection distinguished by a `scope` field. This is the foundation of Feature 1.
 
 The resulting data model is specified in `FIRESTORE-SCHEMA.md`.
+
+---
+
+## 8. Progress against this audit
+
+Updated 15 August 2026. Findings above are struck through where they no longer hold.
+
+| Finding | State |
+|---|---|
+| §2.2 — no sales order entry (`Sales.js:429`) | **Resolved.** `SalesEntry.js`, reached from that button |
+| §3 items 3, 4 — `Inventory.js`, `Accounts.js` orphaned | **Resolved.** Deleted, 334 lines |
+| §4.1 — selling does not reduce stock | **Resolved for orders raised on the new screen.** `createSale()` writes the movement in the same batch. Stock Report still renders its hardcoded strings |
+| §4.2 — two worlds of *product* master data | **Resolved.** `Product.js` reads Firestore; the `SKU-T100` array is gone |
+| §4.2 — two worlds of *customer* and *employee* data | Outstanding. Same change, same pattern |
+| §2.1 — 14 dead Save buttons | Outstanding. `Product.js` is the first of them wired up |
+| §5 — 38 of 40 reports identical | Outstanding; decision 1 above stands |
+
+Two things not in the original audit, found while doing the work and worth recording:
+
+- **`firestore.rules` denied the seed script.** The production rules read the caller's
+  profile from `users/{uid}`, which does not exist until Firebase Auth is connected, so
+  they deny everything — the seed included. Handled by loading development rules into the
+  emulator over its admin API rather than editing the real rules.
+- **Every displayed date was a day early outside UTC.** `toISOString()` converts to UTC
+  first, so at UTC+6 local midnight formats as the previous day. Comparisons were never
+  affected, only display — but both features turn on a stated effective date, so it
+  mattered. Fixed by `formatDate()` in `src/services/core.js`.
+
+**The live risk remains access.** Everything above was verified against the local
+emulator (`npm run dev:reset`). The real Firebase project is on one team member's
+account, is still empty, and has never had the production rules deployed.

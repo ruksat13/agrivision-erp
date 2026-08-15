@@ -163,7 +163,38 @@ because their fertiliser registration is in date.
 **Status: IMPLEMENTED (15 August 2026).** `src/rules/bannedRule.js`, one file and
 one line in the registry — it took under an hour, as this section predicted.
 Parts 1, 2 and 3 below are built and tested. Part 4, the printable register of
-banned products, has its query (`listBannedProducts()`) but no screen.
+banned products, has its query (`listBannedProducts()`) but no dedicated screen;
+the Product page shows the same set as a summary panel.
+
+**A product is banned from the Product page** (`src/pages/Product.js`), not by
+editing the database. Each row carries a Ban action that opens a dialog asking
+for the effective date, the reason and the issuing authority; the confirm button
+stays disabled until a date and reason are present. Banned rows are then tinted,
+struck through and badged with the effective date, with the reason and authority
+shown beneath the name. A ban dated in the future is badged differently — amber
+*BAN FROM* rather than red *BANNED* — because a recorded ban that is not yet
+biting is a real and distinguishable state, which is the point of the field being
+a date rather than a flag. Lifting a ban is a single action on the same row.
+
+**The date-effective behaviour is tested, not merely designed.** On the seeded
+data, banning a product with effect from 15 August and then attempting to sell it:
+
+| Order dated | Result |
+|---|---|
+| 15 August (the effective date) | **Refused** — `PRODUCT_BANNED`, quoting the date, reason and authority; Save disabled |
+| 14 August (the day before) | **Permitted** — no rule issues, Save enabled |
+
+That is the whole claim of this feature reduced to two clicks, and it is the part
+worth demonstrating: the same product, the same dealer, the same quantity, and
+the only thing that changed was the date on the order.
+
+> A defect found during that test and worth recording, because the report should
+> not claim a precision the system did not have: dates were being formatted with
+> `toISOString()`, which converts to UTC first, so at UTC+6 every displayed date
+> was a day early — a ban entered as 15 August was reported as 14 August. The
+> comparisons were never affected, only the display. Fixed by `formatDate()` in
+> `src/services/core.js`. In a feature that turns on a stated date, a block naming
+> the wrong one would not have survived questioning.
 
 **One thing was decided during implementation and is worth defending explicitly:
 this block is not overridable.** Feature 1's is. A lapsed licence is an
@@ -180,11 +211,13 @@ retrospectively and breaks old invoices.
 
 **What is built**
 
-1. `bannedFrom` date and `bannedReason` on the product record.
-2. Sale and purchase of the product are refused on and after that date, with the reason and the
-   authority shown.
+1. `bannedFrom` date, `bannedReason` and `bannedAuthority` on the product record, set from the
+   Product page.
+2. Sale of the product is refused on and after that date, with the reason and the authority shown.
+   *(The purchase path is not built — Purchase.js is still a Tier 2 screen reading its own array.)*
 3. Transactions dated before the ban remain readable and reportable, unaltered.
-4. A short register of banned products with effective dates, printable.
+4. A short register of banned products with effective dates. *(Shown as a panel on the Product page;
+   not yet printable.)*
 
 **Why it is a contribution.** The date-effective distinction — banned going forward, valid
 historically — is a regulatory concept, not an inventory concept. Generic ERPs have no vocabulary
@@ -194,6 +227,14 @@ for it.
 is the cheapest defensible feature in the project.
 
 **Demonstration:** ten seconds. No explanation required.
+
+**As built, on the seeded data:** `AI-000905` and `AI-000906` are seeded as
+withdrawn. Add either to an order for a dealer whose licences are valid — any
+dealer from `AIC-000007` onward — and the line is refused with no Override
+button, where the licence block on the same screen has one. To show the control
+being applied rather than merely existing, ban a product live from the Product
+page and add it to an order; then backdate the order by one day and watch the
+block disappear.
 
 **Legal basis:** see §7. **Risk:** low.
 
