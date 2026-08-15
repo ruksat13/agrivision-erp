@@ -1,127 +1,125 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+    listOffers, createOffer, updateOffer, archiveOffer, publishOffer, unpublishOffer,
+    productOptions, formatDate,
+    OFFER_TYPE, OFFER_BUY_TYPE, OFFER_MODULE, PAYMENT_TYPE,
+} from '../services';
+import { Notice, useFlash, useCollection } from '../components/Notice';
+
+// Offers, backed by Firestore.
+//
+// Third of the fourteen screens in SCREEN-AUDIT.md §2.1. Two things changed
+// beyond wiring Save:
+//
+//   · `buyProducts` and `giftProducts` were hardcoded string arrays — named in
+//     §4.2 as two of the dropdowns that never read a master. Both now come from
+//     productOptions(), so an offer carries a real product code.
+//   · The form never collected the buy and gift quantities, but the table
+//     renders them. Saving would have produced a row with two blank badges —
+//     the §2.3 defect. The fields are on the form now.
+//
+// The old `pay` array mixed three different things (payment type, publish state
+// and deal type) into one list of badges. They are three fields now; the table
+// still shows them stacked, so it reads the same.
 
 const thS = { padding: '11px 12px', color: 'white', fontWeight: '700', fontSize: '13px', textAlign: 'left', verticalAlign: 'middle' };
 const tdS = { padding: '10px 12px', fontSize: '13px', color: '#333', borderBottom: '1px solid #f0f0f0', verticalAlign: 'top' };
+const inp = { width: '100%', padding: '9px 12px', border: '1px solid #dee2e6', borderRadius: '5px', fontSize: '13px', boxSizing: 'border-box' };
+const lbl = { fontSize: '14px', fontWeight: '600', color: '#333', display: 'block', marginBottom: '7px' };
+const req = <span style={{ color: '#dc3545' }}>*</span>;
 
 const Badge = ({ color, children }) => (
     <span style={{ background: color, color: 'white', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '600', display: 'inline-block', marginRight: '4px' }}>{children}</span>
 );
 
-const IBtn = ({ bg, title, children, onClick }) => (
-    <button onClick={onClick} title={title} style={{ padding: '5px 9px', background: bg, color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '13px', marginRight: '3px' }}>{children}</button>
+const IBtn = ({ bg, title, children, onClick, disabled }) => (
+    <button onClick={onClick} title={title} disabled={disabled}
+        style={{ padding: '5px 9px', background: disabled ? '#adb5bd' : bg, color: 'white', border: 'none', borderRadius: '4px', cursor: disabled ? 'not-allowed' : 'pointer', fontSize: '13px', marginRight: '3px' }}>{children}</button>
 );
 
-const initialOffers = [
-    {
-        id: 1, name: 'Egsul 80WG/Get Extra 10% Bonus', code: 'AIOF-000292', period: '2026-08-01 to 2026-09-30',
-        buy: { type: 'Product', label: 'Egsul 80 Wg 1 Kg', pcode: 'AI-000044', qty: '1' },
-        gift: { type: 'Amount', label: '', qty: '10.00 %' },
-        pay: ['Cash', 'Publish', 'Instant Deal'],
-        note: 'এগসুল ৮০ডব্লিউজি যেকোনো সাইজের ক্যাশ বিক্রির ক্ষেত্রে অতিরিক্ত ইনভয়েস হতে ১০% ছাড় পাবেন। ক্রেডিটে কোনো ছাড় নেই। কোম্পানির পলিসি অনুযায়ী ক্যাশ ও ক্রেডিট বোনাস পাবেন।',
-    },
-    {
-        id: 2, name: 'Hundred Plus 300 gm get Bucket 10 ltr', code: 'AIOF-000291', period: '2026-07-29 to 2026-09-30',
-        buy: { type: 'Product', label: 'Hundred Plus 40wdg 300gm', pcode: 'AI-000024', qty: '1' },
-        gift: { type: 'Product', label: 'Bucket 10 LTR', pcode: 'AI-000738', qty: '1' },
-        pay: ['Both', 'Publish', 'Instant Deal'],
-        note: 'হানড্রেড প্লাস ৩০০ গ্রামের প্রতি ১ কার্টন ক্যাশ অথবা ক্রেডিটে নিলে সাথে সাথে ০১ টি ১০ লিটারের বালতি ফ্রি।',
-    },
-    {
-        id: 3, name: 'Hundred Plus 100 gm get Bucket 5 ltr', code: 'AIOF-000290', period: '2026-07-29 to 2026-09-30',
-        buy: { type: 'Product', label: 'Hundred Plus 40wdg 100gm', pcode: 'AI-000025', qty: '1' },
-        gift: { type: 'Product', label: 'Bucket 5 LTR', pcode: 'AI-000737', qty: '1' },
-        pay: ['Both', 'Publish', 'Instant Deal'],
-        note: 'হানড্রেড প্লাস ১০০ গ্রামের প্রতি ১ কার্টন ক্যাশ অথবা ক্রেডিটে নিলে সাথে সাথে ০১ টি ৫ লিটারের বালতি ফ্রি।',
-    },
-    {
-        id: 4, name: 'Super Green 30 Ltr/Get Electric Chula 1pcs', code: 'AIOF-000289', period: '2026-07-01 to 2026-09-30',
-        buy: { type: 'Product', label: 'Super Green 25sc (paclobutrazol 25%) 1 Ltr', pcode: 'AI-000535', qty: '30.00 KG/Litter' },
-        gift: { type: 'Product', label: 'Electric Chula', pcode: 'AI-000507', qty: '1', extra: '3000 Tk/=' },
-        pay: ['Both', 'Publish', 'Instant Deal'],
-        note: 'সুপারগ্রীন যেকোনো সাইজের ৩০ লিটার ক্যাশ ও ক্রেডিট বিক্রির ক্ষেত্রে ১টি ইলেকট্রিক চুলা অথবা ৩,০০০/- টাকা পাবেন। ক্যাশ বিক্রিতে অফার সাথে সাথে, ক্রেডিটে অফার ক্লোজিংয়ের পরে।',
-    },
-    {
-        id: 5, name: 'Tetop 2.4 ltr/Get Ceramic Plates', code: 'AIOF-000288', period: '2026-07-01 to 2026-09-30',
-        buy: { type: 'Product', label: 'Tetop 100 ml', pcode: 'AI-000642', qty: '2.40 KG/Litter' },
-        gift: { type: 'Product', label: 'Ceramic Plates', pcode: 'AI-000491', qty: '1' },
-        pay: ['Both', 'Publish', 'Instant Deal'],
-        note: 'টিটপ ৫০ইসি যেকোনো সাইজের ২.৪ লিটার ক্যাশ ও ক্রেডিট বিক্রির ক্ষেত্রে ১টি সিরামিক প্লেট পাবেন। ক্যাশে সাথে সাথে, ক্রেডিটে অফার ক্লোজিংয়ের পরে।',
-    },
-    {
-        id: 6, name: 'Super Green 1000 ltr/Get Pulsar 150cc', code: 'AIOF-000287', period: '2026-07-01 to 2026-09-30',
-        buy: { type: 'Product', label: 'Super Green 25sc (paclobutrazol 25%) 1 Ltr', pcode: 'AI-000535', qty: '1000.00 KG/Litter' },
-        gift: { type: 'Product', label: 'Pulsar 150cc', pcode: 'AI-000505', qty: '1', extra: '210000 Tk/=' },
-        pay: ['Both', 'Publish', 'Instant Deal'],
-        note: 'সুপারগ্রীন যেকোনো সাইজের ১০০০ লিটার ক্যাশ ও ক্রেডিট বিক্রির ক্ষেত্রে ১টি পালসার ১৫০সিসি মোটরসাইকেল অথবা ২,১০,০০০/- টাকা পাবেন।',
-    },
-    {
-        id: 7, name: 'Super Green 500 ltr/Get Maldives Tour', code: 'AIOF-000286', period: '2026-07-01 to 2026-09-30',
-        buy: { type: 'Product', label: 'Super Green 25sc (paclobutrazol 25%) 1 Ltr', pcode: 'AI-000535', qty: '500.00 KG/Litter' },
-        gift: { type: 'Product', label: 'Maldives Tour', pcode: 'AI-000734', qty: '1', extra: '90000 Tk/=' },
-        pay: ['Both', 'Publish', 'Instant Deal'],
-        note: 'সুপারগ্রীন যেকোনো সাইজের ৫০০ লিটার ক্যাশ ও ক্রেডিট বিক্রির ক্ষেত্রে ১টি মালদ্বীপ ভ্রমণ অথবা ৯০,০০০/- টাকা পাবেন।',
-    },
-    {
-        id: 8, name: 'Super Green 600 ltr/Get Umra Hajj', code: 'AIOF-000285', period: '2026-07-01 to 2026-09-30',
-        buy: { type: 'Product', label: 'Super Green 25sc (paclobutrazol 25%) 1 Ltr', pcode: 'AI-000535', qty: '600.00 KG/Litter' },
-        gift: { type: 'Product', label: 'Umra Hajj', pcode: 'AI-000503', qty: '1', extra: '111000 Tk/=' },
-        pay: ['Both', 'Publish', 'Instant Deal'],
-        note: 'সুপারগ্রীন যেকোনো সাইজের ৬০০ লিটার ক্যাশ ও ক্রেডিট বিক্রির ক্ষেত্রে ১টি ওমরা হজ্জ অথবা ১,১১,০০০/- টাকা পাবেন।',
-    },
-    {
-        id: 9, name: 'Super Green 400 ltr/Get Thailand Tour', code: 'AIOF-000284', period: '2026-07-01 to 2026-09-30',
-        buy: { type: 'Product', label: 'Super Green 25sc (paclobutrazol 25%) 1 Ltr', pcode: 'AI-000535', qty: '400.00 KG/Litter' },
-        gift: { type: 'Product', label: 'Thailand Tour', pcode: 'AI-000500', qty: '1', extra: '73000 Tk/=' },
-        pay: ['Both', 'Publish', 'Instant Deal'],
-        note: 'সুপারগ্রীন যেকোনো সাইজের ৪০০ লিটার ক্যাশ ও ক্রেডিট বিক্রির ক্ষেত্রে ১টি থাইল্যান্ড ভ্রমণ অথবা ৭৩,০০০/- টাকা পাবেন।',
-    },
+// "Both" is not a stored value — it is both payment types (schema §10).
+const PAY_CHOICES = [
+    { label: 'Cash', value: ['Cash'] },
+    { label: 'Credit', value: ['Credit'] },
+    { label: 'Both', value: ['Cash', 'Credit'] },
 ];
+const payLabel = (types = []) => (types.length > 1 ? 'Both' : types[0] || '—');
+const payKey = (types = []) => payLabel(types);
 
-const buyProducts = ['Egsul 80 Wg 1 Kg', 'Hundred Plus 40wdg 300gm', 'Hundred Plus 40wdg 100gm', 'Super Green 25sc 1 Ltr', 'Tetop 100 ml'];
-const giftProducts = ['Bucket 10 LTR', 'Bucket 5 LTR', 'Electric Chula', 'Ceramic Plates', 'Pulsar 150cc', 'Maldives Tour', 'Umra Hajj', 'Thailand Tour'];
-const paymentTypes = ['Cash', 'Credit', 'Both'];
-const buyTypes = ['Product', 'Amount', 'Quantity'];
-const statuses = ['Publish', 'Unpublish'];
-const modules = ['Product', 'Category', 'Brand'];
-const offerTypes = ['Instant Deal', 'Closing Deal'];
+const EMPTY = {
+    buyModule: 'Product', buyProductId: '', buyType: 'Product', buyQty: '',
+    giftType: 'Product', giftProductId: '', giftQty: '', giftExtra: '',
+    name: '', pay: 'Both', startDate: '', endDate: '', status: 'Publish', offerType: 'Instant Deal', noteBn: '',
+};
 
-function AddOffer({ onBack }) {
-    const [form, setForm] = useState({
-        buyModule: '', buyProduct: '', buyType: '', giftModule: '',
-        name: '', paymentType: '', startDate: '', endDate: '', status: '', type: '', notes: '',
-    });
-    const inp = { width: '100%', padding: '9px 12px', border: '1px solid #dee2e6', borderRadius: '5px', fontSize: '13px', boxSizing: 'border-box' };
-    const lbl = { fontSize: '14px', fontWeight: '600', color: '#333', display: 'block', marginBottom: '7px' };
-    const req = <span style={{ color: '#dc3545' }}>*</span>;
+function fromOffer(o) {
+    return {
+        buyModule: o.buyModule || 'Product',
+        buyProductId: o.buy?.productId || '',
+        buyType: o.buy?.type || 'Product',
+        buyQty: o.buy?.qty || '',
+        giftType: o.gift?.type || 'Product',
+        giftProductId: o.gift?.productId || '',
+        giftQty: o.gift?.qty || '',
+        giftExtra: o.gift?.extra || '',
+        name: o.name || '',
+        pay: payLabel(o.paymentTypes),
+        startDate: formatDate(o.startDate),
+        endDate: formatDate(o.endDate),
+        status: o.status === 'Archived' ? 'Unpublish' : (o.status || 'Publish'),
+        offerType: o.offerType || 'Instant Deal',
+        noteBn: o.noteBn || '',
+    };
+}
+
+function AddOffer({ editing, products, busy, onBack, onSave }) {
+    const [form, setForm] = useState(editing ? fromOffer(editing) : EMPTY);
+    const set = (k) => (e) => setForm(p => ({ ...p, [k]: e.target.value }));
+
+    const needsBuyProduct = form.buyType === 'Product';
+    const needsGiftProduct = form.giftType === 'Product';
+    const ready = Boolean(
+        form.name.trim() && form.startDate && form.endDate
+        && (!needsBuyProduct || form.buyProductId)
+        && (!needsGiftProduct || form.giftProductId),
+    ) && !busy;
+
+    const productSelect = (value, onChange, placeholder) => (
+        <select value={value} onChange={onChange} style={inp}>
+            <option value="">🔍 {placeholder}</option>
+            {products.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+        </select>
+    );
 
     return (
         <div style={{ background: 'white', borderRadius: '6px', boxShadow: '0 1px 6px rgba(0,0,0,0.08)' }}>
-            <div style={{ padding: '16px 22px', borderBottom: '1px solid #e9ecef', fontSize: '15px', color: '#333' }}>Add Offer</div>
+            <div style={{ padding: '16px 22px', borderBottom: '1px solid #e9ecef', fontSize: '15px', color: '#333' }}>
+                {editing ? `Edit Offer — ${editing.code}` : 'Add Offer'}
+            </div>
             <div style={{ padding: '22px' }}>
                 {/* Buy fieldset */}
                 <fieldset style={{ border: '1px solid #dee2e6', borderRadius: '5px', padding: '18px 20px', marginBottom: '20px' }}>
                     <legend style={{ padding: '0 8px', fontSize: '17px', fontWeight: '700', color: '#333' }}>Buy</legend>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '18px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '18px' }}>
                         <div>
                             <label style={lbl}>Select Module {req}</label>
-                            <select value={form.buyModule} onChange={e => setForm(p => ({ ...p, buyModule: e.target.value }))} style={inp}>
-                                <option value="">🔍 Please select</option>
-                                {modules.map(m => <option key={m}>{m}</option>)}
-                            </select>
-                        </div>
-                        <div>
-                            <label style={lbl}>Select Product {req}</label>
-                            <select value={form.buyProduct} onChange={e => setForm(p => ({ ...p, buyProduct: e.target.value }))} style={inp}>
-                                <option value="">🔍 Select Products</option>
-                                {buyProducts.map(b => <option key={b}>{b}</option>)}
+                            <select value={form.buyModule} onChange={set('buyModule')} style={inp}>
+                                {OFFER_MODULE.map(m => <option key={m}>{m}</option>)}
                             </select>
                         </div>
                         <div>
                             <label style={lbl}>Select Type {req}</label>
-                            <select value={form.buyType} onChange={e => setForm(p => ({ ...p, buyType: e.target.value }))} style={inp}>
-                                <option value="">🔍 Please select</option>
-                                {buyTypes.map(t => <option key={t}>{t}</option>)}
+                            <select value={form.buyType} onChange={set('buyType')} style={inp}>
+                                {OFFER_BUY_TYPE.map(t => <option key={t}>{t}</option>)}
                             </select>
+                        </div>
+                        <div>
+                            <label style={lbl}>Select Product {needsBuyProduct && req}</label>
+                            {productSelect(form.buyProductId, set('buyProductId'), 'Select Products')}
+                        </div>
+                        <div>
+                            <label style={lbl}>Qty / threshold</label>
+                            <input placeholder="e.g. 1  ·  30.00 KG/Litter" value={form.buyQty} onChange={set('buyQty')} style={inp} />
                         </div>
                     </div>
                 </fieldset>
@@ -129,186 +127,280 @@ function AddOffer({ onBack }) {
                 {/* Gift fieldset */}
                 <fieldset style={{ border: '1px solid #dee2e6', borderRadius: '5px', padding: '18px 20px', marginBottom: '20px' }}>
                     <legend style={{ padding: '0 8px', fontSize: '17px', fontWeight: '700', color: '#333' }}>Gift</legend>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '18px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '18px' }}>
                         <div>
-                            <label style={lbl}>Target module {req}</label>
-                            <select value={form.giftModule} onChange={e => setForm(p => ({ ...p, giftModule: e.target.value }))} style={inp}>
-                                <option value="">🔍 Please select</option>
-                                {giftProducts.map(g => <option key={g}>{g}</option>)}
+                            <label style={lbl}>Gift Type {req}</label>
+                            <select value={form.giftType} onChange={set('giftType')} style={inp}>
+                                {OFFER_BUY_TYPE.map(t => <option key={t}>{t}</option>)}
                             </select>
                         </div>
-                        <div /><div />
+                        <div>
+                            <label style={lbl}>Target module {needsGiftProduct && req}</label>
+                            {productSelect(form.giftProductId, set('giftProductId'), 'Select Gift')}
+                        </div>
+                        <div>
+                            <label style={lbl}>Gift qty</label>
+                            <input placeholder="e.g. 1  ·  10.00 %" value={form.giftQty} onChange={set('giftQty')} style={inp} />
+                        </div>
+                        <div>
+                            <label style={lbl}>Cash alternative</label>
+                            <input placeholder="e.g. 3000 Tk/=" value={form.giftExtra} onChange={set('giftExtra')} style={inp} />
+                        </div>
                     </div>
                 </fieldset>
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '18px', marginBottom: '18px' }}>
                     <div>
                         <label style={lbl}>Name {req}</label>
-                        <input placeholder="Enter Name" value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} style={inp} />
+                        <input placeholder="Enter Name" value={form.name} onChange={set('name')} style={inp} />
                     </div>
                     <div>
                         <label style={lbl}>Payment Type {req}</label>
-                        <select value={form.paymentType} onChange={e => setForm(p => ({ ...p, paymentType: e.target.value }))} style={inp}>
-                            <option value="">🔍 Please select</option>
-                            {paymentTypes.map(t => <option key={t}>{t}</option>)}
+                        <select value={form.pay} onChange={set('pay')} style={inp}>
+                            {PAY_CHOICES.map(c => <option key={c.label}>{c.label}</option>)}
                         </select>
                     </div>
                     <div>
                         <label style={lbl}>Start Date {req}</label>
-                        <input type="date" value={form.startDate} onChange={e => setForm(p => ({ ...p, startDate: e.target.value }))} style={inp} />
+                        <input type="date" value={form.startDate} onChange={set('startDate')} style={inp} />
                     </div>
                     <div>
                         <label style={lbl}>End Date {req}</label>
-                        <input type="date" value={form.endDate} onChange={e => setForm(p => ({ ...p, endDate: e.target.value }))} style={inp} />
+                        <input type="date" value={form.endDate} onChange={set('endDate')} style={inp} />
                     </div>
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '18px' }}>
                     <div>
                         <label style={lbl}>Status {req}</label>
-                        <select value={form.status} onChange={e => setForm(p => ({ ...p, status: e.target.value }))} style={inp}>
-                            <option value="">🔍 Please select</option>
-                            {statuses.map(s => <option key={s}>{s}</option>)}
+                        <select value={form.status} onChange={set('status')} style={inp}>
+                            <option>Publish</option>
+                            <option>Unpublish</option>
                         </select>
                     </div>
                     <div>
                         <label style={lbl}>Type {req}</label>
-                        <select value={form.type} onChange={e => setForm(p => ({ ...p, type: e.target.value }))} style={inp}>
-                            <option value="">🔍 Please select</option>
-                            {offerTypes.map(t => <option key={t}>{t}</option>)}
+                        <select value={form.offerType} onChange={set('offerType')} style={inp}>
+                            {OFFER_TYPE.map(t => <option key={t}>{t}</option>)}
                         </select>
                     </div>
                     <div>
                         <label style={lbl}>Notes</label>
-                        <textarea placeholder="Notes" value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} style={{ ...inp, height: '68px', resize: 'vertical' }} />
+                        <textarea placeholder="Notes" value={form.noteBn} onChange={set('noteBn')} style={{ ...inp, height: '68px', resize: 'vertical' }} />
                     </div>
                 </div>
 
                 <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '20px' }}>
                     <button onClick={onBack} style={{ padding: '8px 22px', background: '#4e73df', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', fontSize: '14px' }}>Back</button>
-                    <button style={{ padding: '8px 22px', background: '#1e7e34', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', fontSize: '14px' }}>Save</button>
+                    <button onClick={() => onSave(form)} disabled={!ready}
+                        style={{ padding: '8px 22px', background: ready ? '#1e7e34' : '#adb5bd', color: 'white', border: 'none', borderRadius: '5px', cursor: ready ? 'pointer' : 'not-allowed', fontSize: '14px' }}>
+                        {busy ? 'Saving…' : 'Save'}
+                    </button>
                 </div>
             </div>
         </div>
     );
 }
 
-const emptyF = { buyProduct: '', giftProduct: '', paymentType: '', buyType: '', status: '' };
+const emptyF = { buyProductId: '', paymentType: '', buyType: '', status: '' };
 
 function Offers() {
     const [view, setView] = useState('list');
-    const [offers, setOffers] = useState(initialOffers);
+    const [editing, setEditing] = useState(null);
     const [draft, setDraft] = useState(emptyF);
     const [applied, setApplied] = useState(emptyF);
+    const [products, setProducts] = useState([]);
+
+    const load = useCallback(() => listOffers(), []);
+    const { rows: offers, loading, error, reload } = useCollection(load, { what: 'offers' });
+    const { flash, say, busy, run } = useFlash();
+
+    // The product master feeds both selectors on the form and the filter bar.
+    useEffect(() => {
+        productOptions().then(setProducts).catch(() => setProducts([]));
+    }, []);
 
     const handleGo = () => setApplied(draft);
     const handleClear = () => { setDraft(emptyF); setApplied(emptyF); };
-    const handleShowAll = () => { setDraft(emptyF); setApplied(emptyF); };
-    const handleDelete = (id) => { if (window.confirm('Delete this offer?')) setOffers(prev => prev.filter(o => o.id !== id)); };
+
+    const handleSave = (form) => run(async () => {
+        const paymentTypes = PAY_CHOICES.find(c => c.label === form.pay)?.value || ['Cash'];
+        const label = (id) => products.find(p => p.value === id)?.product?.name || null;
+        const payload = {
+            name: form.name,
+            buyModule: form.buyModule,
+            buy: { type: form.buyType, productId: form.buyProductId || null, label: label(form.buyProductId), qty: form.buyQty },
+            gift: { type: form.giftType, productId: form.giftProductId || null, label: label(form.giftProductId), qty: form.giftQty, extra: form.giftExtra },
+            paymentTypes,
+            offerType: form.offerType,
+            startDate: form.startDate,
+            endDate: form.endDate,
+            status: form.status,
+            noteBn: form.noteBn,
+        };
+
+        if (editing) {
+            await updateOffer(editing.code, payload);
+            say('ok', `Offer ${editing.code} updated.`);
+        } else {
+            const saved = await createOffer(payload);
+            say('ok', `Offer ${saved.code} saved.`);
+        }
+        setEditing(null);
+        setView('list');
+        await reload();
+    });
+
+    const handleArchive = (o) => {
+        if (!window.confirm(`Delete offer ${o.code}? It is archived rather than removed — an invoice that gave its gift must still resolve it.`)) return;
+        run(async () => {
+            await archiveOffer(o.code, 'Deleted from the offers register');
+            say('ok', `Offer ${o.code} archived.`);
+            await reload();
+        });
+    };
+
+    const handleTogglePublish = (o) => run(async () => {
+        const published = o.status === 'Publish';
+        await (published ? unpublishOffer(o.code) : publishOffer(o.code));
+        say('ok', `Offer ${o.code} ${published ? 'unpublished' : 'published'}.`);
+        await reload();
+    });
 
     const filtered = offers.filter(o => {
-        if (applied.buyProduct && !o.buy.label.includes(applied.buyProduct)) return false;
-        if (applied.giftProduct && !(o.gift.label || '').includes(applied.giftProduct)) return false;
-        if (applied.paymentType && !o.pay.includes(applied.paymentType)) return false;
-        if (applied.buyType && o.buy.type !== applied.buyType) return false;
-        if (applied.status && !o.pay.includes(applied.status)) return false;
+        if (applied.buyProductId && o.buy?.productId !== applied.buyProductId && o.gift?.productId !== applied.buyProductId) return false;
+        if (applied.paymentType && !(o.paymentTypes || []).includes(applied.paymentType)) return false;
+        if (applied.buyType && o.buy?.type !== applied.buyType) return false;
+        if (applied.status && o.status !== applied.status) return false;
         return true;
     });
 
-    if (view === 'add') return <AddOffer onBack={() => setView('list')} />;
+    const notices = (
+        <>
+            {loading && view === 'list' && <Notice tone="info">Loading offers…</Notice>}
+            {error && <Notice tone="warn">{error}</Notice>}
+            {flash && <Notice tone={flash.tone}>{flash.text}</Notice>}
+        </>
+    );
+
+    if (view === 'add') {
+        return (
+            <div>
+                {notices}
+                <AddOffer
+                    key={editing ? editing.code : 'new'}
+                    editing={editing}
+                    products={products}
+                    busy={busy}
+                    onBack={() => { setEditing(null); setView('list'); }}
+                    onSave={handleSave}
+                />
+            </div>
+        );
+    }
 
     const fInp = { padding: '9px 12px', border: '1px solid #ced4da', borderRadius: '5px', fontSize: '13px' };
 
     return (
-        <div style={{ background: 'white', borderRadius: '6px', boxShadow: '0 1px 6px rgba(0,0,0,0.08)', padding: '22px' }}>
-            <div style={{ borderBottom: '2px solid #0d6efd', paddingBottom: '14px', marginBottom: '18px' }}>
-                <div style={{ fontSize: '24px', fontWeight: '700', color: '#0d6efd' }}>🎁 Offers</div>
-                <div style={{ fontSize: '13px', color: '#6c757d', marginTop: '2px' }}>Detailed offers record</div>
-            </div>
+        <div>
+            {notices}
 
-            <div style={{ background: '#f0f9ff', padding: '14px 16px', borderRadius: '5px', display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '18px' }}>
-                <select value={draft.buyProduct} onChange={e => setDraft(p => ({ ...p, buyProduct: e.target.value }))} style={{ ...fInp, minWidth: '240px' }}>
-                    <option value="">🔍 Buy Product</option>
-                    {buyProducts.map(b => <option key={b}>{b}</option>)}
-                </select>
-                <select value={draft.giftProduct} onChange={e => setDraft(p => ({ ...p, giftProduct: e.target.value }))} style={{ ...fInp, minWidth: '240px' }}>
-                    <option value="">🔍 Gift Product</option>
-                    {giftProducts.map(g => <option key={g}>{g}</option>)}
-                </select>
-                <select value={draft.paymentType} onChange={e => setDraft(p => ({ ...p, paymentType: e.target.value }))} style={{ ...fInp, minWidth: '150px' }}>
-                    <option value="">🔍 Payment Type</option>
-                    {paymentTypes.map(t => <option key={t}>{t}</option>)}
-                </select>
-                <select value={draft.buyType} onChange={e => setDraft(p => ({ ...p, buyType: e.target.value }))} style={{ ...fInp, minWidth: '150px' }}>
-                    <option value="">🔍 Buy Type</option>
-                    {buyTypes.map(t => <option key={t}>{t}</option>)}
-                </select>
-                <select value={draft.status} onChange={e => setDraft(p => ({ ...p, status: e.target.value }))} style={{ ...fInp, minWidth: '150px' }}>
-                    <option value="">🔍 Status</option>
-                    {statuses.map(s => <option key={s}>{s}</option>)}
-                </select>
-                <button onClick={handleGo} style={{ padding: '9px 20px', background: '#1e7e34', color: 'white', border: 'none', borderRadius: '5px', fontSize: '14px', cursor: 'pointer' }}>🔍 Go</button>
-                <button onClick={handleClear} style={{ padding: '9px 20px', background: '#dc3545', color: 'white', border: 'none', borderRadius: '5px', fontSize: '14px', cursor: 'pointer' }}>✕ Clear</button>
-                <button onClick={handleShowAll} style={{ padding: '9px 20px', background: '#4e73df', color: 'white', border: 'none', borderRadius: '5px', fontSize: '14px', cursor: 'pointer' }}>Show All</button>
-            </div>
+            <div style={{ background: 'white', borderRadius: '6px', boxShadow: '0 1px 6px rgba(0,0,0,0.08)', padding: '22px' }}>
+                <div style={{ borderBottom: '2px solid #0d6efd', paddingBottom: '14px', marginBottom: '18px' }}>
+                    <div style={{ fontSize: '24px', fontWeight: '700', color: '#0d6efd' }}>🎁 Offers</div>
+                    <div style={{ fontSize: '13px', color: '#6c757d', marginTop: '2px' }}>Detailed offers record</div>
+                </div>
 
-            <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead>
-                        <tr style={{ background: '#1a2035' }}>
-                            <th style={{ ...thS, width: '50px' }}>No</th>
-                            <th style={thS}>Name</th>
-                            <th style={thS}>Select Module (Buy)</th>
-                            <th style={thS}>Target Module (Gift)</th>
-                            <th style={thS}>Payment<br />Status</th>
-                            <th style={thS}>Note</th>
-                            <th style={{ ...thS, textAlign: 'right' }}>
-                                Action&nbsp;
-                                <button onClick={() => setView('add')} style={{ padding: '3px 11px', background: '#28a745', color: 'white', border: 'none', borderRadius: '3px', fontSize: '12px', cursor: 'pointer' }}>Add</button>
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {filtered.length === 0 ? (
-                            <tr><td colSpan={7} style={{ ...tdS, textAlign: 'center', padding: '30px', color: '#adb5bd' }}>No data found</td></tr>
-                        ) : filtered.map((o, i) => (
-                            <tr key={o.id} style={{ background: i % 2 === 0 ? 'white' : '#f8fbfd' }}>
-                                <td style={{ ...tdS, textAlign: 'center' }}>{i + 1}</td>
-                                <td style={{ ...tdS, minWidth: '220px' }}>
-                                    <div style={{ fontWeight: '600', color: '#1a2035' }}>{o.name}</div>
-                                    <div style={{ fontSize: '12px', color: '#495057' }}>{o.code}</div>
-                                    <div style={{ fontSize: '12px', color: '#6c757d' }}>{o.period}</div>
-                                </td>
-                                <td style={{ ...tdS, minWidth: '230px' }}>
-                                    <Badge color="#28a745">{o.buy.type}</Badge>
-                                    <span style={{ fontSize: '12px' }}>{o.buy.label} [{o.buy.pcode}]</span>
-                                    <div style={{ marginTop: '4px' }}>
-                                        <Badge color={o.buy.qty && o.buy.qty.includes('KG') ? '#20c997' : '#28a745'}>{o.buy.qty}</Badge>
-                                    </div>
-                                </td>
-                                <td style={{ ...tdS, minWidth: '200px' }}>
-                                    <Badge color="#28a745">{o.gift.type}</Badge>
-                                    {o.gift.label && <span style={{ fontSize: '12px' }}>{o.gift.label} [{o.gift.pcode}]</span>}
-                                    <div style={{ marginTop: '4px' }}>
-                                        <Badge color="#28a745">{o.gift.qty}</Badge>
-                                        {o.gift.extra && <Badge color="#20c997">{o.gift.extra}</Badge>}
-                                    </div>
-                                </td>
-                                <td style={tdS}>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', alignItems: 'flex-start' }}>
-                                        {o.pay.map(p => <Badge key={p} color="#0dcaf0">{p}</Badge>)}
-                                    </div>
-                                </td>
-                                <td style={{ ...tdS, fontSize: '12px', maxWidth: '320px', whiteSpace: 'normal' }}>{o.note}</td>
-                                <td style={{ ...tdS, whiteSpace: 'nowrap', textAlign: 'right' }}>
-                                    <IBtn bg="#dc3545" title="Unpublish">👎</IBtn>
-                                    <IBtn bg="#4e73df" title="Edit" onClick={() => setView('add')}>✎</IBtn>
-                                    <IBtn bg="#dc3545" title="Delete" onClick={() => handleDelete(o.id)}>🗑</IBtn>
-                                </td>
+                <div style={{ background: '#f0f9ff', padding: '14px 16px', borderRadius: '5px', display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '18px' }}>
+                    <select value={draft.buyProductId} onChange={e => setDraft(p => ({ ...p, buyProductId: e.target.value }))} style={{ ...fInp, minWidth: '260px' }}>
+                        <option value="">🔍 Product (buy or gift)</option>
+                        {products.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+                    </select>
+                    <select value={draft.paymentType} onChange={e => setDraft(p => ({ ...p, paymentType: e.target.value }))} style={{ ...fInp, minWidth: '150px' }}>
+                        <option value="">🔍 Payment Type</option>
+                        {PAYMENT_TYPE.map(t => <option key={t}>{t}</option>)}
+                    </select>
+                    <select value={draft.buyType} onChange={e => setDraft(p => ({ ...p, buyType: e.target.value }))} style={{ ...fInp, minWidth: '150px' }}>
+                        <option value="">🔍 Buy Type</option>
+                        {OFFER_BUY_TYPE.map(t => <option key={t}>{t}</option>)}
+                    </select>
+                    <select value={draft.status} onChange={e => setDraft(p => ({ ...p, status: e.target.value }))} style={{ ...fInp, minWidth: '150px' }}>
+                        <option value="">🔍 Status</option>
+                        <option>Publish</option>
+                        <option>Unpublish</option>
+                    </select>
+                    <button onClick={handleGo} style={{ padding: '9px 20px', background: '#1e7e34', color: 'white', border: 'none', borderRadius: '5px', fontSize: '14px', cursor: 'pointer' }}>🔍 Go</button>
+                    <button onClick={handleClear} style={{ padding: '9px 20px', background: '#dc3545', color: 'white', border: 'none', borderRadius: '5px', fontSize: '14px', cursor: 'pointer' }}>✕ Clear</button>
+                </div>
+
+                <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        <thead>
+                            <tr style={{ background: '#1a2035' }}>
+                                <th style={{ ...thS, width: '50px' }}>No</th>
+                                <th style={thS}>Name</th>
+                                <th style={thS}>Select Module (Buy)</th>
+                                <th style={thS}>Target Module (Gift)</th>
+                                <th style={thS}>Payment<br />Status</th>
+                                <th style={thS}>Note</th>
+                                <th style={{ ...thS, textAlign: 'right' }}>
+                                    Action&nbsp;
+                                    <button onClick={() => { setEditing(null); setView('add'); }} style={{ padding: '3px 11px', background: '#28a745', color: 'white', border: 'none', borderRadius: '3px', fontSize: '12px', cursor: 'pointer' }}>Add</button>
+                                </th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            {filtered.length === 0 ? (
+                                <tr><td colSpan={7} style={{ ...tdS, textAlign: 'center', padding: '30px', color: '#adb5bd' }}>
+                                    {loading ? 'Loading…' : 'No data found'}
+                                </td></tr>
+                            ) : filtered.map((o, i) => (
+                                <tr key={o.code} style={{ background: i % 2 === 0 ? 'white' : '#f8fbfd', opacity: o.status === 'Publish' ? 1 : 0.6 }}>
+                                    <td style={{ ...tdS, textAlign: 'center' }}>{i + 1}</td>
+                                    <td style={{ ...tdS, minWidth: '220px' }}>
+                                        <div style={{ fontWeight: '600', color: '#1a2035' }}>{o.name}</div>
+                                        <div style={{ fontSize: '12px', color: '#495057' }}>{o.code}</div>
+                                        <div style={{ fontSize: '12px', color: '#6c757d' }}>{formatDate(o.startDate)} to {formatDate(o.endDate)}</div>
+                                    </td>
+                                    <td style={{ ...tdS, minWidth: '230px' }}>
+                                        <Badge color="#28a745">{o.buy?.type}</Badge>
+                                        {o.buy?.label && <span style={{ fontSize: '12px' }}>{o.buy.label} [{o.buy.productId}]</span>}
+                                        {o.buy?.qty && (
+                                            <div style={{ marginTop: '4px' }}>
+                                                <Badge color={String(o.buy.qty).includes('KG') ? '#20c997' : '#28a745'}>{o.buy.qty}</Badge>
+                                            </div>
+                                        )}
+                                    </td>
+                                    <td style={{ ...tdS, minWidth: '200px' }}>
+                                        <Badge color="#28a745">{o.gift?.type}</Badge>
+                                        {o.gift?.label && <span style={{ fontSize: '12px' }}>{o.gift.label} [{o.gift.productId}]</span>}
+                                        {(o.gift?.qty || o.gift?.extra) && (
+                                            <div style={{ marginTop: '4px' }}>
+                                                {o.gift?.qty && <Badge color="#28a745">{o.gift.qty}</Badge>}
+                                                {o.gift?.extra && <Badge color="#20c997">{o.gift.extra}</Badge>}
+                                            </div>
+                                        )}
+                                    </td>
+                                    <td style={tdS}>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', alignItems: 'flex-start' }}>
+                                            <Badge key={payKey(o.paymentTypes)} color="#0dcaf0">{payLabel(o.paymentTypes)}</Badge>
+                                            <Badge color={o.status === 'Publish' ? '#0dcaf0' : '#6c757d'}>{o.status}</Badge>
+                                            <Badge color="#0dcaf0">{o.offerType}</Badge>
+                                        </div>
+                                    </td>
+                                    <td style={{ ...tdS, fontSize: '12px', maxWidth: '320px', whiteSpace: 'normal' }}>{o.noteBn}</td>
+                                    <td style={{ ...tdS, whiteSpace: 'nowrap', textAlign: 'right' }}>
+                                        <IBtn bg={o.status === 'Publish' ? '#dc3545' : '#28a745'} disabled={busy}
+                                            title={o.status === 'Publish' ? 'Unpublish' : 'Publish'}
+                                            onClick={() => handleTogglePublish(o)}>{o.status === 'Publish' ? '👎' : '👍'}</IBtn>
+                                        <IBtn bg="#4e73df" title="Edit" disabled={busy} onClick={() => { setEditing(o); setView('add'); }}>✎</IBtn>
+                                        <IBtn bg="#dc3545" title="Delete" disabled={busy} onClick={() => handleArchive(o)}>🗑</IBtn>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     );

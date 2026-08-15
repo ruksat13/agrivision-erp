@@ -21,7 +21,9 @@ export {
     PRODUCT_CATEGORY, PRODUCT_TYPE, UNIT, WHO_CLASS, STATUS,
     LICENCE_SCOPE, LICENCE_TYPE, LICENCE_FOR_CATEGORY,
     SALE_STATUS, SALE_FLOW, PAYMENT_TYPE, SALE_SOURCE,
-    OFFICE, MOVEMENT_TYPE,
+    OFFICE, OFFICE_LABEL, officeLabel, officeOptions, MOVEMENT_TYPE,
+    OFFER_STATUS, OFFER_TYPE, OFFER_BUY_TYPE, OFFER_MODULE,
+    DEMAND_STATUS,
     ROLE, AUDIT_ACTION, RULE_CODE,
 } from './constants';
 
@@ -77,3 +79,26 @@ export {
 export {
     writeAudit, logRuleOverride, logAuth, listAudit, listOverrides,
 } from './audit';
+
+// ── Tier 2 (schema §10) ───────────────────────────────────────────────────
+// Added as each screen in SCREEN-AUDIT.md §2.1 is wired to Firestore.
+
+export {
+    getExpenseHead, getExpenseHeadOrThrow, listExpenseHeads, expenseHeadOptions,
+    createExpenseHead, updateExpenseHead, deactivateExpenseHead,
+} from './expenseHeads';
+
+export {
+    getBankAccount, getBankAccountOrThrow, listBankAccounts, bankAccountOptions,
+    createBankAccount, updateBankAccount, deactivateBankAccount,
+} from './bankAccounts';
+
+export {
+    getOffer, getOfferOrThrow, listOffers, isRunningOn, nextOfferCode,
+    createOffer, updateOffer, publishOffer, unpublishOffer, archiveOffer, offerQtyLabel,
+} from './offers';
+
+export {
+    getDemand, getDemandOrThrow, listDemands, nextRequestNo,
+    demandTotals, packNotation, createDemand, setDemandStatus,
+} from './productDemands';

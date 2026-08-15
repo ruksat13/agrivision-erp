@@ -598,8 +598,12 @@ compliance report and rehearsal, and costs nothing that was promised.
 
 ## 10. Tier 2 — collections that follow later
 
-Shape recorded so Tier 1 does not have to change when these are migrated. All continue to display
-sample data for this submission, and the written report says so.
+Shape recorded so Tier 1 does not have to change when these are migrated. The rest continue to
+display sample data for this submission, and the written report says so.
+
+**A ✅ marks a collection that is now live** — a service module exists beside `products.js`, the
+screen reads and writes it, and the row below is its full shape rather than a sketch. These were
+migrated while wiring the fourteen dead Save buttons of `SCREEN-AUDIT.md` §2.1; the order is §2.1.1.
 
 | Collection | Key fields | Replaces |
 |---|---|---|
@@ -609,17 +613,19 @@ sample data for this submission, and the written report says so.
 | `purchase_returns` | returnNo, purchaseId, supplierId, returnDate, reason, amount, status, note | `PurchaseReturn.js`. Writes `purchase_return` movements |
 | **`boms`** | bomNo, productId, items[{productId, ratio}], effectiveFrom | `Batch.js:8` — **renamed from "Batch"**, see decision 2 in `SCREEN-AUDIT.md` §7 |
 | `repackings` | repackNo, bomId, outputProductId, qty, cartonQty, status, note | `Repacking.js:21`. Writes `repack_in` / `repack_out` movements |
-| `offers` | code, name, buy{}, gift{}, paymentTypes[], startDate, endDate, status, noteBn | `Offers.js:14` |
-| `expenses`, `expense_heads` | headId, amount, date, receivedBy, status, note | `Expense.js`, `ExpenseHead.js:6` |
+| **`offers`** ✅ | `code` ✔︎ (`AIOF-000292`, from the `offers` counter), `name` ✔︎, `buyModule` (`Product`\|`Category`\|`Brand`), `buy{type` (`Product`\|`Amount`\|`Quantity`)`, productId, label` *(denorm)*`, qty}`, `gift{type, productId, label` *(denorm)*`, qty, extra}`, `paymentTypes[]` ⊂ `Cash`,`Credit` (the UI's "Both" is both entries, not a third value), `offerType` (`Instant Deal`\|`Closing Deal`), `startDate`, `endDate`, `status`, `noteBn`. **Document ID is the code.** Two fields the original sketch missed and the screen needs: `offerType`, because the Bengali notes turn on it — an instant deal gives the gift at the till, a closing deal at offer close — and `buy.qty`/`gift.qty`, which the list renders but the form never collected | `Offers.js:14` |
+| | `status` is `Publish` \| `Unpublish` \| `Archived`, **not** the usual `Active`/`Inactive`: an offer has a publish state of its own, and the screen's Delete button needs somewhere to put a withdrawn offer that is not "unpublished". `Archived` is this collection's soft delete (§2) | |
+| `expenses` | headId, headName *(denorm)*, amount, date, receivedBy, status, note | `Expense.js` |
+| **`expense_heads`** ✅ | `name` ✔︎, `status` (`Active`\|`Inactive`). Auto-ID — a head is renamed often enough that the name is not a safe document key, and `expenses.headId` must survive a rename. `expenses` carries `headName` as a denormalised copy for the list, refreshed from here | `ExpenseHead.js:6` |
 | `collections` | mrn, customerId, officerId, amount, paymentType, collectedAt, status | `CashCollection.js` |
 | `supplier_payments` | supplierId, amount, paymentType, date, status | `SupplierPayment.js` |
-| `bank_accounts` | name, number, bank, branch, status | `BankAccount.js:6` |
+| **`bank_accounts`** ✅ | `name` ✔︎, `number` ✔︎, `bank` ✔︎, `branch` ✔︎, `status` (`Active`\|`Inactive`). Auto-ID. `number` is unique and the service refuses a second account carrying it — an account number entered twice is a typo, and Supplier Payment picks the account by it | `BankAccount.js:6` |
 | **`opening_balances`** | **`party`** (`customer` \| `supplier`), `partyId`, partyName *(denorm)*, type, amount, date, status, note | `CustomerOpeningBalance.js:11`, `SupplierOpeningBalance.js`. **One collection for both**, following D4 — the same reason `licences` uses `scope` rather than splitting in two. Posting an entry also moves the party's `balance` |
 | `commissions` | party (`customer`\|`supplier`), partyId, type, amount, date, status | `CustomerCommission.js`, `SupplierCommission.js` |
 | `sale_returns` | returnNo, saleId, customerId, reason, amount, warehouseInDate, status | `SalesReturn.js`. Writes `sale_return` movements |
 | `damages` | productId, qty, buyPrice, total, reason, officeId | `Damage.js:3`. Writes `damage` movements |
 | `delivery_orders`, `delivery_challans`, `delivery_returns` | **must reference `sales.invoiceNo`**, not a separate `ADO-…` series | `Delivery.js:10` |
-| `product_demands` | requestNo, fromOfficeId, toOfficeId, expectedDate, status, items[] | `ProductDemand.js:36`. Items must be per-request, not the shared array at `:17` |
+| **`product_demands`** ✅ | `requestNo` ✔︎ (`AIPR-000217`, from the `product_demands` counter), `fromOfficeId` ✔︎, `toOfficeId` ✔︎ (both from `OFFICE`, and they must differ), `expectedDate` ✔︎, `requestedAt`, `status` (`Pending`\|`Approved`\|`Received`\|`Cancel`), `note`, `items[{productId, name` *(denorm)*`, packSize` *(denorm)*`, cartonQty` *(denorm)*`, demandQty, stockAtRequest}]`. **Document ID is the request number.** `items` is an embedded array, not a subcollection: a request is read and printed whole, never queried line by line, and it is small. `stockAtRequest` is a snapshot of `getStockBalance(productId, fromOfficeId)` taken when the request was raised — the detail page prints what the stock *was*, which is the figure the request was justified by, and re-deriving it later would show a different number | `ProductDemand.js:36`. Items are per-request, closing §4.3 — the shared array at `:17` that made every request show the same sixteen lines is gone |
 | `employees`, `hr_visits`, `hr_attendance`, `hr_payroll` | | `Employee.js:3`, `HR.js:4` |
 | `offices`, `regions`, `areas`, `territories` | Replaces the three broken Mapping forms | `Mapping.js:3` |
 | `categories`, `brands`, `units`, `origins`, `product_types` | Already correctly modelled in the UI | `Categories.js:7` |

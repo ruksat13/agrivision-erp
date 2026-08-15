@@ -309,9 +309,28 @@ Two things the seed deliberately does not invent, both explained at the top of
 
 ---
 
-## What is not here yet
+## Tier 2
 
-Tier 2 collections — purchases, BOMs, repacking, expenses, collections,
-delivery, HR — are listed in `FIRESTORE-SCHEMA.md` §10 and still read the sample
-arrays in their pages. Add a module here when you migrate one; the pattern to
-copy is `products.js`, and `Categories.js` is the screen pattern to copy.
+These are being migrated as the fourteen dead Save buttons of `SCREEN-AUDIT.md`
+§2.1 are wired up, in the order §2.1.1 gives. Live so far:
+
+| File | Screen | Notes |
+|---|---|---|
+| `expenseHeads.js` | Expense Head | The smallest module here. **Read this one first** if you are migrating another |
+| `bankAccounts.js` | Bank Account | Refuses a second account with the same number |
+| `offers.js` | Offers | `status` is `Publish`/`Unpublish`/`Archived`, not the usual pair. Delete archives |
+| `productDemands.js` | Product Demand | Lines live on the document. `stockAtRequest` is a snapshot, not a live figure |
+
+Two conventions worth copying:
+
+- **Screens do not write their own loading and error handling.** `useCollection`
+  and `useFlash` in `src/components/Notice.js` hold it — see `ExpenseHead.js`,
+  which is the whole pattern in 180 lines.
+- **A soft delete is whatever this collection's `status` calls it.** `offers`
+  needed a third value because "deleted" and "unpublished" are different things.
+  Say so in `FIRESTORE-SCHEMA.md` §10 before writing the code.
+
+Still on sample data: purchases, BOMs, repacking, expenses, collections,
+delivery, HR — listed in `FIRESTORE-SCHEMA.md` §10. Add a module here when you
+migrate one; the pattern to copy is `products.js`, and `Categories.js` is the
+screen pattern to copy.

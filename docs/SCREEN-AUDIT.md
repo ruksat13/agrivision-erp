@@ -44,10 +44,10 @@ styled as active. Pressing it has no effect whatsoever.
 | `src/pages/PurchaseReturn.js:105` | Save dead; the list is also read-only — `const [rows] = useState(...)` (`:116`) |
 | `src/pages/Batch.js:131` | Save dead; `batches` is a module-level `const` (`:8`) |
 | `src/pages/Repacking.js:185` | Save dead; `repackings` is a module-level `const` (`:21`) |
-| `src/pages/Offers.js:189` | Save dead. Delete works, add does not |
-| `src/pages/ProductDemand.js:159` | Save dead |
-| `src/pages/BankAccount.js:50` | Save dead; `const [accounts] = useState(...)` (`:59`) |
-| `src/pages/ExpenseHead.js:30` | Save dead; `const [heads] = useState(...)` (`:40`) |
+| ~~`src/pages/Offers.js:189`~~ | ~~Save dead. Delete works, add does not~~ **Resolved 16 Aug** — `offers`. Delete now archives rather than dropping the row |
+| ~~`src/pages/ProductDemand.js:159`~~ | ~~Save dead~~ **Resolved 16 Aug** — `product_demands`, lines per request (closes §4.3) |
+| ~~`src/pages/BankAccount.js:50`~~ | ~~Save dead; `const [accounts] = useState(...)` (`:59`)~~ **Resolved 16 Aug** — `bank_accounts` |
+| ~~`src/pages/ExpenseHead.js:30`~~ | ~~Save dead; `const [heads] = useState(...)` (`:40`)~~ **Resolved 16 Aug** — `expense_heads` |
 | `src/pages/Expense.js:89` | Save dead. Approve and delete work, add does not |
 | `src/pages/CustomerOpeningBalance.js:80` | Save dead; `const [records] = useState(...)` (`:89`) |
 | `src/pages/SupplierOpeningBalance.js:76` | Save dead; `const [records] = useState(...)` (`:85`) |
@@ -191,9 +191,10 @@ One root cause: **every page owns a hardcoded `const` array and there is no shar
 | Employees | 5 people (`Employee.js:3`) | 4 in HR (`HR.js:10`), 10 in Employee Account (`EmployeeAccount.js:11`) — three different lists |
 
 **Almost no dropdown reads from a master.** The order screen's product and dealer
-selectors now do (`productOptions()`, `customerOptions()`). Everywhere else the option
-list is still a hardcoded string array: `Purchase.js:48-49`, `Batch.js:23-24`,
-`Offers.js:80-81`, `CustomerOpeningBalance.js:35`, `Repacking.js:38`.
+selectors now do (`productOptions()`, `customerOptions()`), and so do both of the Offers
+selectors and the new Product Demand line editor. Everywhere else the option list is
+still a hardcoded string array: `Purchase.js:48-49`, `Batch.js:23-24`,
+`CustomerOpeningBalance.js:35`, `Repacking.js:38`. ~~`Offers.js:80-81`~~ resolved 16 August.
 
 ### 4.3 Detail screens ignore the row that was clicked
 
@@ -201,8 +202,9 @@ list is still a hardcoded string array: `Purchase.js:48-49`, `Batch.js:23-24`,
   The footer totals (`:166-168`) come from `selected.debit/credit`, which do not sum the rows above
 - `src/pages/Repacking.js:72` — every repacking detail shows the same six Porbot items
   (`detailItems`, `:12`)
-- `src/pages/ProductDemand.js:85` — every request detail shows the same sixteen items
-  (`demandItems`, `:17`)
+- ~~`src/pages/ProductDemand.js:85` — every request detail shows the same sixteen items
+  (`demandItems`, `:17`)~~ **Resolved 16 August.** Lines are entered on the form and stored on the
+  request; the detail shows the ones actually asked for, with the stock figure as it stood that day
 - `src/pages/Purchase.js:89-95` — every purchase invoice shows one hardcoded line,
   "Agri Zink (packet) 1kg, 310"
 - `src/pages/Sales.js:12` — `mockItems()` fabricates invoice lines by splitting the total 60/40;
@@ -392,7 +394,7 @@ Updated 15 August 2026. Findings above are struck through where they no longer h
 | §4.1 — selling does not reduce stock | **Resolved for orders raised on the new screen.** `createSale()` writes the movement in the same batch. Stock Report still renders its hardcoded strings |
 | §4.2 — two worlds of *product* master data | **Resolved.** `Product.js` reads Firestore; the `SKU-T100` array is gone |
 | §4.2 — two worlds of *customer* and *employee* data | Outstanding. Same change, same pattern |
-| §2.1 — 14 dead Save buttons | Outstanding, none wired yet. `Product.js` is **not** one of the 14 — its Save already worked, it just wrote to local state; it is the pattern to copy. Ordering in §2.1.1 |
+| §2.1 — 14 dead Save buttons | **Group A done, 16 August — 4 of 14.** ExpenseHead, BankAccount, Offers and ProductDemand write to `expense_heads`, `bank_accounts`, `offers` and `product_demands` through service modules beside `products.js`. Each was checked against the emulator: the row appears, and it is still there after a browser refresh. Groups B–D outstanding, order in §2.1.1. `Product.js` is **not** one of the 14 — its Save already worked, it just wrote to local state; it is the pattern that was copied |
 | §5 — 38 of 40 reports identical | Outstanding; decision 1 above stands |
 
 Two things not in the original audit, found while doing the work and worth recording:
