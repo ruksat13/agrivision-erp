@@ -19,6 +19,10 @@ export const COL = {
     BANK_ACCOUNTS: 'bank_accounts',
     OFFERS: 'offers',
     PRODUCT_DEMANDS: 'product_demands',
+    SUPPLIERS: 'suppliers',
+    OPENING_BALANCES: 'opening_balances',
+    SUPPLIER_PAYMENTS: 'supplier_payments',
+    COMMISSIONS: 'commissions',
 };
 
 // ── products ──────────────────────────────────────────────────────────────
@@ -85,6 +89,32 @@ export const OFFER_MODULE = ['Product', 'Category', 'Brand'];
 // An inter-office stock request. `Cancel` rather than `Cancelled` because that
 // is the word already on the screen and in the sample rows.
 export const DEMAND_STATUS = ['Pending', 'Approved', 'Received', 'Cancel'];
+
+// ── parties, ledgers and commissions (schema §10) ─────────────────────────
+// `opening_balances` and `commissions` each serve both a customer screen and a
+// supplier screen, distinguished by `party` — decision D4's reasoning applied
+// twice more.
+export const PARTY = ['customer', 'supplier'];
+export const ENTRY_TYPE = ['Debit', 'Credit'];
+export const OPENING_STATUS = ['Approved', 'Cancel'];
+
+// How a Debit/Credit moves the party's balance. A customer's balance is a
+// receivable and a supplier's is a payable, so the same word moves them in
+// opposite directions. Nothing outside signedDelta() in openingBalances.js
+// should ever apply this by hand.
+export const BALANCE_SIGN = {
+    customer: { Debit: +1, Credit: -1 },
+    supplier: { Debit: -1, Credit: +1 },
+};
+
+// Not PAYMENT_TYPE — a sale is Cash or Credit, but a payment to a supplier is
+// made by some actual method.
+export const PAY_METHOD = ['Cash', 'bKash', 'Nagad', 'Bank Transfer', 'Cheque', 'RTGS'];
+export const PAYMENT_STATUS = ['Pending', 'Approved', 'Cancelled'];
+
+export const COMMISSION_BASIS = ['Yearly', 'Purchase', 'Invoice', 'Product', 'Travel'];
+export const COMMISSION_METHOD = ['Amount', 'Percentage'];
+export const COMMISSION_STATUS = ['Pending', 'Approved', 'Cancelled'];
 
 // ── users ─────────────────────────────────────────────────────────────────
 export const ROLE = [

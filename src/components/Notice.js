@@ -40,7 +40,15 @@ export function useFlash({ timeout = 6000 } = {}) {
     const timer = useRef(null);
     const alive = useRef(true);
 
-    useEffect(() => () => { alive.current = false; clearTimeout(timer.current); }, []);
+    // alive.current is set on the way IN as well as cleared on the way out.
+    // StrictMode mounts, unmounts and remounts in development; without the
+    // assignment here the first cleanup leaves it false for good, and every
+    // later `finally { setBusy(false) }` is skipped — the Save button sticks on
+    // "Saving…" and the screen looks hung.
+    useEffect(() => {
+        alive.current = true;
+        return () => { alive.current = false; clearTimeout(timer.current); };
+    }, []);
 
     const say = useCallback((tone, text) => {
         if (!alive.current) return;

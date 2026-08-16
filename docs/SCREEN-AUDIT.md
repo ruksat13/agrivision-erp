@@ -50,10 +50,10 @@ styled as active. Pressing it has no effect whatsoever.
 | ~~`src/pages/ExpenseHead.js:30`~~ | ~~Save dead; `const [heads] = useState(...)` (`:40`)~~ **Resolved 16 Aug** — `expense_heads` |
 | `src/pages/Expense.js:89` | Save dead. Approve and delete work, add does not |
 | `src/pages/CustomerOpeningBalance.js:80` | Save dead; `const [records] = useState(...)` (`:89`) |
-| `src/pages/SupplierOpeningBalance.js:76` | Save dead; `const [records] = useState(...)` (`:85`) |
-| `src/pages/SupplierPayment.js:141` | Add form's Save dead. Edit, approve and delete work |
+| ~~`src/pages/SupplierOpeningBalance.js:76`~~ | ~~Save dead; `const [records] = useState(...)` (`:85`)~~ **Resolved 16 Aug** — `opening_balances`, and the entry moves the supplier's balance in the same batch |
+| ~~`src/pages/SupplierPayment.js:141`~~ | ~~Add form's Save dead. Edit, approve and delete work~~ **Resolved 16 Aug** — `supplier_payments`. Edit, approve and delete worked on local state and were lost on refresh; all three go through the service layer now, and approve is what moves the payable |
 | `src/pages/CustomerCommission.js:301` | Add form's Save dead |
-| `src/pages/SupplierCommission.js:189` | Add form's Save dead |
+| ~~`src/pages/SupplierCommission.js:189`~~ | ~~Add form's Save dead~~ **Resolved 16 Aug** — `commissions` |
 
 **Effort:** ~0.25 d per screen → **3.5 person-days**
 **Before or after Firestore:** **After — in the same pass as Firestore.** Wiring these to local
@@ -394,7 +394,8 @@ Updated 15 August 2026. Findings above are struck through where they no longer h
 | §4.1 — selling does not reduce stock | **Resolved for orders raised on the new screen.** `createSale()` writes the movement in the same batch. Stock Report still renders its hardcoded strings |
 | §4.2 — two worlds of *product* master data | **Resolved.** `Product.js` reads Firestore; the `SKU-T100` array is gone |
 | §4.2 — two worlds of *customer* and *employee* data | Outstanding. Same change, same pattern |
-| §2.1 — 14 dead Save buttons | **Group A done, 16 August — 4 of 14.** ExpenseHead, BankAccount, Offers and ProductDemand write to `expense_heads`, `bank_accounts`, `offers` and `product_demands` through service modules beside `products.js`. Each was checked against the emulator: the row appears, and it is still there after a browser refresh. Groups B–D outstanding, order in §2.1.1. `Product.js` is **not** one of the 14 — its Save already worked, it just wrote to local state; it is the pattern that was copied |
+| §2.1 — 14 dead Save buttons | **Groups A and B done, 16 August — 7 of 14.** A: ExpenseHead, BankAccount, Offers, ProductDemand. B: SupplierOpeningBalance, SupplierPayment, SupplierCommission, preceded by the `suppliers` master they all needed. Each was checked against the emulator: the row appears, it is still there after a browser refresh, and where a balance is involved the balance moved with it. Groups C and D outstanding, order in §2.1.1. `Product.js` is **not** one of the 14 — its Save already worked, it just wrote to local state; it is the pattern that was copied |
+| §4.2 — two worlds of *supplier* data | **Resolved 16 August**, as a prerequisite of group B. `Supplier.js` reads `suppliers`; the three hardcoded name lists at `SupplierOpeningBalance.js:32`, `SupplierPayment.js:37` and `SupplierCommission.js` are gone and all three post against a real supplier code |
 | §5 — 38 of 40 reports identical | Outstanding; decision 1 above stands |
 
 Two things not in the original audit, found while doing the work and worth recording:

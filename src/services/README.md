@@ -320,6 +320,10 @@ These are being migrated as the fourteen dead Save buttons of `SCREEN-AUDIT.md`
 | `bankAccounts.js` | Bank Account | Refuses a second account with the same number |
 | `offers.js` | Offers | `status` is `Publish`/`Unpublish`/`Archived`, not the usual pair. Delete archives |
 | `productDemands.js` | Product Demand | Lines live on the document. `stockAtRequest` is a snapshot, not a live figure |
+| `suppliers.js` | Supplier | The mirror of `customers.js`. **`balance` is a payable, not a receivable** |
+| `openingBalances.js` | Customer / Supplier Opening Balance | One collection, two parties. `signedDelta()` is the only place Debit/Credit becomes a sign |
+| `supplierPayments.js` | Supplier Payment | The payable moves on **approve**, not on save |
+| `commissions.js` | Customer / Supplier Commission | One collection, two parties. Awarding a commission does **not** move a balance |
 
 Two conventions worth copying:
 
@@ -329,6 +333,13 @@ Two conventions worth copying:
 - **A soft delete is whatever this collection's `status` calls it.** `offers`
   needed a third value because "deleted" and "unpublished" are different things.
   Say so in `FIRESTORE-SCHEMA.md` §10 before writing the code.
+- **A document that moves a balance writes both in one `writeBatch`.** An
+  opening balance that exists without its balance movement, or the reverse, is
+  worse than neither. `createOpeningBalance()` and `approveSupplierPayment()`
+  are the two worked examples; `createSale()` was the first.
+- **Two screens that differ only by a noun are one component with a prop.**
+  `OpeningBalance.js` and `Commission.js` each serve a customer screen and a
+  supplier screen, the way `Categories.js` serves five.
 
 Still on sample data: purchases, BOMs, repacking, expenses, collections,
 delivery, HR — listed in `FIRESTORE-SCHEMA.md` §10. Add a module here when you
