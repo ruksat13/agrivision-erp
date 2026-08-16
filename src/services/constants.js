@@ -24,6 +24,11 @@ export const COL = {
     SUPPLIER_PAYMENTS: 'supplier_payments',
     COMMISSIONS: 'commissions',
     EXPENSES: 'expenses',
+    PURCHASES: 'purchases',
+    PURCHASE_ITEMS: 'purchase_items',
+    PURCHASE_RETURNS: 'purchase_returns',
+    BOMS: 'boms',
+    REPACKINGS: 'repackings',
 };
 
 // ── products ──────────────────────────────────────────────────────────────
@@ -112,6 +117,14 @@ export const BALANCE_SIGN = {
 // made by some actual method.
 export const PAY_METHOD = ['Cash', 'bKash', 'Nagad', 'Bank Transfer', 'Cheque', 'RTGS'];
 export const PAYMENT_STATUS = ['Pending', 'Approved', 'Cancelled'];
+
+// ── purchases, returns and repacking (schema §10) ─────────────────────────
+// A purchase is either received or cancelled — there is no pending state,
+// because saving one already moved the stock. A return is approved first,
+// because the goods have to physically go back.
+export const PURCHASE_STATUS = ['Stock Done', 'Cancelled'];
+export const RETURN_STATUS = ['Pending', 'Approved', 'Cancelled'];
+export const REPACK_STATUS = ['Pending', 'Done', 'Cancelled'];
 
 // The Expense screen posts money out AND money in; the badge on each row says
 // which, and Head Wise Expense nets them.

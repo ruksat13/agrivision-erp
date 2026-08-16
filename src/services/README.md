@@ -325,6 +325,10 @@ These are being migrated as the fourteen dead Save buttons of `SCREEN-AUDIT.md`
 | `supplierPayments.js` | Supplier Payment | The payable moves on **approve**, not on save |
 | `commissions.js` | Customer / Supplier Commission | One collection, two parties. Awarding a commission does **not** move a balance |
 | `expenses.js` | Expense | References `expense_heads`. `expenseByHead()` is the Head Wise Expense report |
+| `purchases.js` | Purchase | The mirror of `sales.js`. Stock, lines and the payable in one batch. Refuses a banned product |
+| `purchaseReturns.js` | Purchase Return | Stock and payable move on **approve**. Refuses a return larger than the office holds |
+| `boms.js` | Bill of Materials | `ratio` is **per unit of output**. `explodeBom()` multiplies it by a run size |
+| `repackings.js` | Repacking | Consumes and produces in one batch. `checkMaterials()` is what the form previews |
 
 Two conventions worth copying:
 
@@ -342,7 +346,12 @@ Two conventions worth copying:
   `OpeningBalance.js` and `Commission.js` each serve a customer screen and a
   supplier screen, the way `Categories.js` serves five.
 
-Still on sample data: purchases, BOMs, repacking, expenses, collections,
-delivery, HR — listed in `FIRESTORE-SCHEMA.md` §10. Add a module here when you
-migrate one; the pattern to copy is `products.js`, and `Categories.js` is the
-screen pattern to copy.
+Still on sample data: collections (cash), delivery, HR, sale returns, damages,
+mapping, SMS, settings — listed in `FIRESTORE-SCHEMA.md` §10. Add a module here
+when you migrate one; the pattern to copy is `products.js`, and `Categories.js`
+is the screen pattern to copy.
+
+**Damage and Sales Return are the two that still do not move stock.** Neither
+was one of the fourteen dead Save buttons, so neither was in this pass, but both
+write a movement type that already exists (`damage`, `sale_return`) and
+`purchaseReturns.js` is the closest worked example.

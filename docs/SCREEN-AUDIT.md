@@ -40,10 +40,10 @@ styled as active. Pressing it has no effect whatsoever.
 
 | File and line | Detail |
 |---|---|
-| `src/pages/Purchase.js:210` | Add Purchase form is complete; Save is dead. `initialPurchases` is a module-level `const` (`Purchase.js:33`), not state |
-| `src/pages/PurchaseReturn.js:105` | Save dead; the list is also read-only — `const [rows] = useState(...)` (`:116`) |
-| `src/pages/Batch.js:131` | Save dead; `batches` is a module-level `const` (`:8`) |
-| `src/pages/Repacking.js:185` | Save dead; `repackings` is a module-level `const` (`:21`) |
+| ~~`src/pages/Purchase.js:210`~~ | ~~Add Purchase form is complete; Save is dead. `initialPurchases` is a module-level `const` (`Purchase.js:33`), not state~~ **Resolved 16 Aug** — `purchases` + `purchase_items`. Writes the stock movements and the payable in the same batch, and applies the Feature 2 check on the purchase path |
+| ~~`src/pages/PurchaseReturn.js:105`~~ | ~~Save dead; the list is also read-only — `const [rows] = useState(...)` (`:116`)~~ **Resolved 16 Aug** — `purchase_returns`. The form had no product lines at all; it has them now, because otherwise there is nothing to take out of stock |
+| ~~`src/pages/Batch.js:131`~~ | ~~Save dead; `batches` is a module-level `const` (`:8`)~~ **Resolved 16 Aug** — `boms`, under the honest name decision 2 gave it |
+| ~~`src/pages/Repacking.js:185`~~ | ~~Save dead; `repackings` is a module-level `const` (`:21`)~~ **Resolved 16 Aug** — `repackings`. Consumes and produces in one batch |
 | ~~`src/pages/Offers.js:189`~~ | ~~Save dead. Delete works, add does not~~ **Resolved 16 Aug** — `offers`. Delete now archives rather than dropping the row |
 | ~~`src/pages/ProductDemand.js:159`~~ | ~~Save dead~~ **Resolved 16 Aug** — `product_demands`, lines per request (closes §4.3) |
 | ~~`src/pages/BankAccount.js:50`~~ | ~~Save dead; `const [accounts] = useState(...)` (`:59`)~~ **Resolved 16 Aug** — `bank_accounts` |
@@ -168,7 +168,11 @@ One root cause: **every page owns a hardcoded `const` array and there is no shar
   real figures from the ledger; the screen does not read it yet
 - ~~`src/pages/Product.js:4` — a second, unrelated `stock` field on the product master~~
   **Resolved** — products carry no stock field; stock is the sum of `stock_movements`
-- Purchase, Repacking, Damage, SalesReturn and PurchaseReturn never touch stock either
+- ~~Purchase, Repacking, Damage, SalesReturn and PurchaseReturn never touch stock either~~
+  **Purchase, PurchaseReturn and Repacking resolved 16 August** — each writes its movements in the
+  same batch as its own document, so receiving raises stock, returning lowers it, and a repacking
+  run does both at once. **Damage and SalesReturn are still outstanding**; neither was one of the
+  fourteen, and both are their own screens
 
 ### 4.2 Two disjoint worlds of master data
 
@@ -200,13 +204,14 @@ still a hardcoded string array: `Purchase.js:48-49`, `Batch.js:23-24`,
 
 - `src/pages/CustomerLedger.js:144` — **every customer opens the same ledger** (`ledgerRows`, `:38`).
   The footer totals (`:166-168`) come from `selected.debit/credit`, which do not sum the rows above
-- `src/pages/Repacking.js:72` — every repacking detail shows the same six Porbot items
-  (`detailItems`, `:12`)
+- ~~`src/pages/Repacking.js:72` — every repacking detail shows the same six Porbot items
+  (`detailItems`, `:12`)~~ **Resolved 16 August.** What a run consumed is stored on the run and
+  snapshotted, so editing the recipe later does not rewrite last month's production
 - ~~`src/pages/ProductDemand.js:85` — every request detail shows the same sixteen items
   (`demandItems`, `:17`)~~ **Resolved 16 August.** Lines are entered on the form and stored on the
   request; the detail shows the ones actually asked for, with the stock figure as it stood that day
-- `src/pages/Purchase.js:89-95` — every purchase invoice shows one hardcoded line,
-  "Agri Zink (packet) 1kg, 310"
+- ~~`src/pages/Purchase.js:89-95` — every purchase invoice shows one hardcoded line,
+  "Agri Zink (packet) 1kg, 310"~~ **Resolved 16 August.** The invoice reads `purchase_items`
 - `src/pages/Sales.js:12` — `mockItems()` fabricates invoice lines by splitting the total 60/40;
   Due Balance is `grandTotal * 3.5` (`Sales.js:143`)
 
@@ -218,7 +223,7 @@ still a hardcoded string array: `Purchase.js:48-49`, `Batch.js:23-24`,
 | Sales → Delivery | Invoices are `AINV-…`, delivery orders are `ADO-…` — unrelated universes. The challan's `doRef` is free text (`Delivery.js:159`) |
 | Sales → Sales Return | Invoice number is free text (`SalesReturn.js:405`); a return restores no stock and credits no ledger |
 | Stock → Damage | Product name is free text (`Damage.js:110`); damage reduces no stock |
-| Batch → Repacking | `Repacking.js:38` hardcodes three batch options; the twelve batches in `Batch.js` are not read |
+| ~~Batch → Repacking~~ | ~~`Repacking.js:38` hardcodes three batch options; the twelve batches in `Batch.js` are not read~~ **Resolved 16 August.** The recipe selector reads `boms`, and a run consumes the recipe × the run size |
 | SMS → SMS Log | Sending an SMS writes nothing to the log (`SMS.js:53`) |
 | Categories → Product | Categories, brands, units and origins added in `Categories.js` still never appear in the Product form. Category, type and unit now come from the schema enumerations rather than free text, but brand and origin remain free-text — `categories`, `brands` and `origins` are Tier 2 and not migrated |
 | Settings → Invoice | Saving Company Profile only sets a flag (`Settings.js:117`); the invoice header never changes. `COMPANY` is hardcoded in three places: `Sales.js:3`, `Purchase.js:12`, `CancelSales.js:3` |
@@ -394,7 +399,8 @@ Updated 15 August 2026. Findings above are struck through where they no longer h
 | §4.1 — selling does not reduce stock | **Resolved for orders raised on the new screen.** `createSale()` writes the movement in the same batch. Stock Report still renders its hardcoded strings |
 | §4.2 — two worlds of *product* master data | **Resolved.** `Product.js` reads Firestore; the `SKU-T100` array is gone |
 | §4.2 — two worlds of *customer* and *employee* data | Outstanding. Same change, same pattern |
-| §2.1 — 14 dead Save buttons | **Groups A, B and C done, 16 August — 10 of 14.** A: ExpenseHead, BankAccount, Offers, ProductDemand. B: SupplierOpeningBalance, SupplierPayment, SupplierCommission, preceded by the `suppliers` master they all needed. C: CustomerOpeningBalance, CustomerCommission, Expense. Each was checked against the emulator: the row appears, it is still there after a browser refresh, and where a balance is involved the balance moved with it. **Group D outstanding** — Purchase, PurchaseReturn, Batch, Repacking, the four that write `stock_movements`. `Product.js` is **not** one of the 14 — its Save already worked, it just wrote to local state; it is the pattern that was copied |
+| §2.1 — 14 dead Save buttons | **RESOLVED, 16 August — all 14.** A: ExpenseHead, BankAccount, Offers, ProductDemand. B: SupplierOpeningBalance, SupplierPayment, SupplierCommission, preceded by the `suppliers` master they all needed. C: CustomerOpeningBalance, CustomerCommission, Expense. D: Purchase, PurchaseReturn, Batch (as Bill of Materials), Repacking. Each was checked against the emulator one at a time: the row appears, it is still there after a browser refresh, and where a balance or a stock figure is involved it moved with it. `Product.js` is **not** one of the 14 — its Save already worked, it just wrote to local state; it is the pattern that was copied |
+| §2.1.1 — every screen needs its own collection first | Confirmed by doing it. **Sixteen Tier 2 collections** were specified in `FIRESTORE-SCHEMA.md` §10 and then built: `expense_heads`, `bank_accounts`, `offers`, `product_demands`, `suppliers`, `opening_balances`, `supplier_payments`, `commissions`, `expenses`, `purchases`, `purchase_items`, `purchase_returns`, `boms`, `repackings`. Nothing was wired to local `setState` first, so no handler was written twice |
 | §5.2 — one component, several routes | Extended. `OpeningBalance.js` and `Commission.js` each serve a customer route and a supplier route from a `party` prop, the way `Categories.js` serves five. Four page files became two components plus four one-line wrappers |
 | §4.2 — two worlds of *supplier* data | **Resolved 16 August**, as a prerequisite of group B. `Supplier.js` reads `suppliers`; the three hardcoded name lists at `SupplierOpeningBalance.js:32`, `SupplierPayment.js:37` and `SupplierCommission.js` are gone and all three post against a real supplier code |
 | §5 — 38 of 40 reports identical | Outstanding; decision 1 above stands |

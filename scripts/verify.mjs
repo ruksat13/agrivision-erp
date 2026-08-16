@@ -18,8 +18,16 @@ const EMULATOR = process.argv.includes('--emulator');
 const db = getFirestore(initializeApp({ projectId: 'agrivision-erp', apiKey: 'x', appId: 'x' }));
 if (EMULATOR) connectFirestoreEmulator(db, '127.0.0.1', 8080);
 
+// The Tier 1 collections the seed writes, and the counts it writes them at.
+// Those counts only hold on a FRESHLY seeded database — using the app moves
+// them, which is not a failure. Run this straight after `npm run dev:reset`.
 const COLLECTIONS = ['products', 'customers', 'licences', 'sales', 'sale_items', 'stock_movements', 'users', 'audit_log', 'counters'];
 const EXPECTED = { products: 24, customers: 30, licences: 26, sales: 17, sale_items: 30, stock_movements: 99, users: 12, audit_log: 1, counters: 1 };
+
+// Tier 2 (schema §10). The seed writes none of these, so they are read for the
+// invariants below but not counted — a supplier or a purchase entered by hand
+// is data, not a discrepancy.
+const TIER2 = ['suppliers', 'opening_balances', 'supplier_payments', 'purchases', 'purchase_returns'];
 
 const load = async (name) => (await getDocs(collection(db, name))).docs.map(d => ({ id: d.id, ...d.data() }));
 const money = (n) => Math.round((Number(n || 0) + Number.EPSILON) * 100) / 100;
@@ -32,7 +40,7 @@ const check = (label, ok, detail = '') => {
 };
 
 const data = {};
-for (const c of COLLECTIONS) data[c] = await load(c);
+for (const c of [...COLLECTIONS, ...TIER2]) data[c] = await load(c);
 
 // ── Counts ────────────────────────────────────────────────────────────────
 console.log('\nDocument counts');
@@ -94,15 +102,50 @@ check('cancelled invoices produced no stock movement',
 check('every cancelled invoice carries a reason',
     cancelled.every(s => s.cancelReason && s.cancelReason.length > 0));
 
-// 6 — dealer balance equals opening + dues on live invoices
+// 6 — dealer balance equals opening + dues on live invoices + posted entries
+//
+// `opening_balances` was added when the Customer/Supplier Opening Balance
+// screens were wired (SCREEN-AUDIT.md §2.1). Posting an entry moves the party's
+// balance, so an invariant that only knows about sale dues reports a false
+// failure the first time anyone uses those screens. The sign convention is the
+// one BALANCE_SIGN holds in src/services/constants.js, repeated here rather
+// than imported because this script does not load the app.
+const BALANCE_SIGN = {
+    customer: { Debit: +1, Credit: -1 },
+    supplier: { Debit: -1, Credit: +1 },
+};
+const postedFor = (party, partyId) => data.opening_balances
+    .filter(e => e.party === party && e.partyId === partyId && e.status === 'Approved')
+    .reduce((sum, e) => sum + BALANCE_SIGN[party][e.type] * Number(e.amount || 0), 0);
+
 const dueByCustomer = {};
 data.sales.filter(s => s.status !== 'Cancelled').forEach(s => {
     dueByCustomer[s.customerId] = money((dueByCustomer[s.customerId] || 0) + Number(s.dueAmount));
 });
 const badBalance = data.customers.filter(c =>
-    money(Number(c.openingBalance) + (dueByCustomer[c.id] || 0)) !== money(c.balance));
-check('dealer balance equals opening balance plus live dues', badBalance.length === 0,
+    money(Number(c.openingBalance) + (dueByCustomer[c.id] || 0) + postedFor('customer', c.id)) !== money(c.balance));
+check('dealer balance equals opening balance plus live dues and posted entries', badBalance.length === 0,
     badBalance.length ? badBalance.slice(0, 3).map(c => c.id).join(', ') : `${data.customers.length} dealers`);
+
+// 6b — the same for suppliers, whose balance is a payable rather than a
+// receivable: opening, plus purchases received, less approved payments and
+// approved returns.
+if (data.suppliers.length) {
+    const sumBy = (rows, id, field) => rows
+        .filter(r => r.supplierId === id)
+        .reduce((s, r) => s + Number(r[field] || 0), 0);
+
+    const badPayable = data.suppliers.filter(s => {
+        const purchased = sumBy(data.purchases.filter(p => p.status !== 'Cancelled'), s.id, 'grandTotal');
+        const paid = sumBy(data.supplier_payments.filter(p => p.status === 'Approved'), s.id, 'amount');
+        const returned = sumBy(data.purchase_returns.filter(r => r.status === 'Approved'), s.id, 'amount');
+        const expected = money(Number(s.openingBalance) + postedFor('supplier', s.id) + purchased - paid - returned);
+        return expected !== money(s.balance);
+    });
+    check('supplier payable equals opening plus purchases less payments and returns',
+        badPayable.length === 0,
+        badPayable.length ? badPayable.slice(0, 3).map(s => s.id).join(', ') : `${data.suppliers.length} suppliers`);
+}
 
 // 7 — every product carries the category Feature 1 gates on
 check('every product has a category', data.products.every(p => !!p.category));
