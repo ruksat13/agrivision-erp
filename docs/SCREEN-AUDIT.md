@@ -405,6 +405,25 @@ Updated 15 August 2026. Findings above are struck through where they no longer h
 | §4.2 — two worlds of *supplier* data | **Resolved 16 August**, as a prerequisite of group B. `Supplier.js` reads `suppliers`; the three hardcoded name lists at `SupplierOpeningBalance.js:32`, `SupplierPayment.js:37` and `SupplierCommission.js` are gone and all three post against a real supplier code |
 | §5 — 38 of 40 reports identical | Outstanding; decision 1 above stands |
 
+### Regression check on Features 1 and 2, 16 August
+
+Fourteen screens were rewritten in one pass, several of them touching the
+service layer the two features depend on. Both features were re-tested from a
+**clean `npm run dev:reset`** afterwards. All four checks pass, and the ledger
+invariants still hold with the two test orders in place.
+
+| Check | Result |
+|---|---|
+| Dealer `AIC-000001` (pesticide licence lapsed 15 days ago) + a pesticide | **Blocked.** `LICENCE_EXPIRED`, naming the licence `PL-2026-1000` and its expiry date. Save disabled |
+| Override path | Button present; **"Record override" stays disabled until a reason is typed**; Save enables only after the reason is recorded |
+| Dealer with a valid licence + banned `AI-000905` | **Blocked.** `PRODUCT_BANNED`, with the withdrawal date and authority. **No Override button at all**, Save stays disabled — a legal prohibition is not a manager's to waive |
+| The same banned line backdated to 15 May (before `bannedFrom`) | **Permitted**, saved as `AINV-2026-05-0034677`. The date-effective behaviour is intact |
+| `audit_log` | `rule_override` row against `sales/AINV-2026-08-0034676`, carrying the user, their role, the reason, the timestamp, the rule code and the product |
+
+Worth noting for the demonstration: the backdated order took an invoice number
+in the **May** series, because the counter is keyed on the sale date's month.
+That is correct, and an examiner may well ask about it.
+
 Two things not in the original audit, found while doing the work and worth recording:
 
 - **`firestore.rules` denied the seed script.** The production rules read the caller's

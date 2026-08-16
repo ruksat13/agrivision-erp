@@ -28,6 +28,7 @@ import {
 import {
     PRODUCTS, PRODUCT_BY_NAME, OFFICERS, STAFF, DEALERS, INVOICES,
     COMPANY_LICENCES, dealerLicences, openingStock, OFFICES,
+    SUPPLIERS, SUPPLIER_COUNTER, EXPENSE_HEADS,
 } from './seed-data.mjs';
 
 // ── Config ────────────────────────────────────────────────────────────────
@@ -54,7 +55,14 @@ if (EMULATOR) {
     connectFirestoreEmulator(db, '127.0.0.1', 8080);
 }
 
-const COLLECTIONS = ['products', 'customers', 'licences', 'sales', 'sale_items', 'stock_movements', 'users', 'audit_log', 'counters'];
+// Tier 1, plus the two Tier 2 masters that other screens select from. The rest
+// of Tier 2 is transactional and starts empty — an empty purchase register is
+// an empty register, but an empty supplier list is a broken dropdown.
+const COLLECTIONS = [
+    'products', 'customers', 'licences', 'sales', 'sale_items', 'stock_movements',
+    'users', 'audit_log', 'counters',
+    'suppliers', 'expense_heads',
+];
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -382,10 +390,52 @@ function seedSales() {
     return { sales: INVOICES.length, items, movements, dueByCustomer };
 }
 
+// ══ Tier 2 masters ═══════════════════════════════════════════════════════
+// Only the two that other screens SELECT from. Purchases, returns, repacking
+// runs, expenses and commissions are transactional and start empty on purpose.
+
+function seedSuppliers() {
+    SUPPLIERS.forEach(s => {
+        const opening = money(s.openingBalance);
+        put('suppliers', s.code, {
+            name: s.name,
+            code: s.code,
+            phone: s.phone,
+            contactPerson: s.contactPerson,
+            email: s.email,
+            area: s.area,
+            address: s.address,
+            openingBalance: opening,
+            // A payable, not a receivable. Nothing has been purchased or paid
+            // against these yet, so the balance IS the opening figure.
+            balance: opening,
+            status: 'Active',
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+        });
+    });
+    return SUPPLIERS.length;
+}
+
+function seedExpenseHeads() {
+    EXPENSE_HEADS.forEach(name => {
+        put('expense_heads', null, {
+            name,
+            status: 'Active',
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+        });
+    });
+    return EXPENSE_HEADS.length;
+}
+
 function seedCounter() {
     // Highest seeded invoice is …0034675, so the next generated one continues
     // the series rather than colliding with it.
     put('counters', 'sales', { value: 34675, updatedAt: serverTimestamp() });
+    // Same for supplier codes: the next createSupplier() must not reissue a
+    // code the seed already used.
+    put('counters', 'suppliers', { value: SUPPLIER_COUNTER, updatedAt: serverTimestamp() });
 }
 
 function seedAuditEntry(counts) {
@@ -425,6 +475,8 @@ async function main() {
         sales: sales.sales,
         saleItems: sales.items,
         saleMovements: sales.movements,
+        suppliers: seedSuppliers(),
+        expenseHeads: seedExpenseHeads(),
     };
     seedCounter();
     seedAuditEntry(counts);
@@ -444,6 +496,8 @@ Ready to demonstrate:
     1 with none at all  → Feature 1
   · 2 products banned from a stated date         → Feature 2
   · ${sales.sales} invoices, ${sales.items} lines, 2 of them cancelled with a reason
+  · ${SUPPLIERS.length} suppliers and ${EXPENSE_HEADS.length} expense heads, so no dropdown on the
+    supplier, purchase or expense screens opens empty
 
 Two things still need you:
 

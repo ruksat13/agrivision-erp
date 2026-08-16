@@ -288,10 +288,16 @@ node scripts/seed.mjs           # write it
 node scripts/seed.mjs --wipe    # clear the collections first, then write
 ```
 
-Writes 240 documents: 24 products, 30 dealers, 12 users, 26 licences, 17 invoices
-with their lines, and opening stock in three offices. The invoices and dealers
-are lifted from `CancelSales.js` and `CustomerLedger.js`, which are the only
-sample arrays in the codebase carrying real line items.
+Writes 285 documents: 24 products, 30 dealers, 12 users, 26 licences, 17 invoices
+with their lines, opening stock in three offices, and the two Tier 2 masters
+other screens select from — 20 suppliers and 24 expense heads. The invoices and
+dealers are lifted from `CancelSales.js` and `CustomerLedger.js`, which are the
+only sample arrays in the codebase carrying real line items; the suppliers come
+from the three supplier screens and keep the `AIS-…` codes those pages used.
+
+The rest of Tier 2 starts empty on purpose. A purchase register with nothing in
+it is an empty register; a supplier dropdown with nothing in it looks like a
+feature that does not work.
 
 Set up for the demonstration: **3 dealers with an expired pesticide licence, 2
 expiring within a month, 1 with none at all, and 2 banned products.**

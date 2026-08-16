@@ -37,7 +37,7 @@ npm run dev:reset
 ```
 
 That single command starts the Firestore and Auth emulators, loads development
-security rules, wipes whatever was there, seeds 240 documents and verifies them.
+security rules, wipes whatever was there, seeds 285 documents and verifies them.
 It takes about twenty seconds and then stays in the foreground.
 
 **Terminal 2 — the app:**
@@ -89,9 +89,16 @@ to behave when there is no data.
 
 ## What the seed gives you
 
-240 documents: 24 products, 30 dealers, 26 licences, 17 invoices with their lines,
-12 users and opening stock across three offices. The dealers and invoices are
-lifted from the sample arrays already in the pages, so the data looks real.
+285 documents: 24 products, 30 dealers, 26 licences, 17 invoices with their lines,
+12 users and opening stock across three offices, plus 20 suppliers and 24 expense
+heads. Everything is lifted from the sample arrays already in the pages, so the
+data looks real.
+
+The suppliers and expense heads are there because five screens *select* from
+them — Supplier Opening Balance, Supplier Payment, Supplier Commission, Purchase
+and Expense. The transactional Tier 2 collections (purchases, returns, repacking
+runs, expenses, commissions) start empty on purpose: an empty purchase register
+is an empty register, but an empty supplier dropdown reads as a broken feature.
 
 It is arranged so the two features can be demonstrated immediately:
 

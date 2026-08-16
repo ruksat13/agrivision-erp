@@ -605,6 +605,10 @@ display sample data for this submission, and the written report says so.
 screen reads and writes it, and the row below is its full shape rather than a sketch. These were
 migrated while wiring the fourteen dead Save buttons of `SCREEN-AUDIT.md` §2.1; the order is §2.1.1.
 
+**Two of them are seeded: `suppliers` and `expense_heads`.** Those are masters that five screens
+*select* from, so an empty one reads as a broken feature rather than an empty database. The
+transactional Tier 2 collections start empty on purpose.
+
 | Collection | Key fields | Replaces |
 |---|---|---|
 | **`suppliers`** ✅ | `code` ✔︎ (`AIS-000085`), `name` ✔︎, `phone` ✔︎, `address`, `area`, `email`, `contactPerson`, `openingBalance`, `balance`, `status`. **Document ID is the code**, as `customers` does. Built the same way as `customers` because §2.1.1 group B needs it before any of its three screens | `Supplier.js:3` |

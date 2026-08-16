@@ -283,6 +283,71 @@ export function openingStock(products) {
 // requirement is that a product with no safety data prints a visible
 // "safety data not recorded" marker.
 
+// ══ Suppliers ════════════════════════════════════════════════════════════
+// Lifted from the sample arrays in the three supplier screens — the codes are
+// the ones those pages already used:
+//
+//   SupplierPayment.js:17          AIS-000002 … AIS-000088
+//   SupplierOpeningBalance.js:12   AIS-000021 … AIS-000085
+//   Purchase.js:33                 AIS-000055, AIS-000065, AIS-000089
+//
+// Seeded because Supplier Opening Balance, Supplier Payment, Supplier
+// Commission, Purchase and Purchase Return all select from this master. An
+// empty dropdown on any of those reads as a broken feature rather than an
+// empty database (SCREEN-AUDIT.md §2.1.1 group B).
+//
+// `balance` is a PAYABLE — what the company owes them. The opening figures are
+// the amounts those same sample rows carried.
+
+const S = (code, name, phone, area, address, openingBalance) => ({
+    code, name, phone, area, address, openingBalance,
+    email: null,
+    contactPerson: null,
+});
+
+export const SUPPLIERS = [
+    S('AIS-000002', 'Hasan Polymer Industries', '01711-200002', 'Dhaka', 'Tongi I/A, Gazipur', 500000),
+    S('AIS-000003', 'Madina Printing Pack', '01711-200003', 'Bogura', 'Boroghola, Bogura', 2500000),
+    S('AIS-000004', 'Mitali Offset Press and Computer', '01711-200004', 'Bogura', 'Sherpur Road, Bogura', 1000000),
+    S('AIS-000005', 'Saba Packaging BD', '01711-200005', 'Dhaka', 'Savar, Dhaka', 3300000),
+    S('AIS-000006', 'Sufola Agro Chemicals Industries', '01711-200006', 'Dhaka', 'Keraniganj, Dhaka', 580000),
+    S('AIS-000008', 'Digital Poly Pack', '01711-200008', 'Dhaka', 'Demra, Dhaka', 4000000),
+    S('AIS-000015', 'AR Khan and CO.', '01711-200015', 'Dhaka', 'Motijheel, Dhaka', 1951500),
+    S('AIS-000019', 'Shahin Screen Printer', '01711-200019', 'Bogura', 'Mohasthangor, Bogura', 68400),
+    S('AIS-000021', 'Need Agro Industries', '01711-200021', 'Rajshahi', 'Katakhali, Rajshahi', 1728750),
+    S('AIS-000024', 'CANARY AGRO CHEMICALS PRIVATE LIMITED', '01711-200024', 'Dhaka', 'Gulshan, Dhaka', 654463),
+    S('AIS-000027', 'Fasal Agro Industries', '01711-200027', 'Dhaka', 'Ashulia, Dhaka', 779000),
+    S('AIS-000032', 'Rana Motors', '01711-200032', 'Bogura', 'Station Road, Bogura', 547000),
+    S('AIS-000041', 'Agrivision International (BRAC)', '01711-200041', 'Dhaka', 'Banani, Dhaka', 74191510),
+    S('AIS-000044', 'Raha Trade International', '01711-200044', 'Dhaka', 'Uttara, Dhaka', 153330),
+    S('AIS-000053', 'Nanjing Ecofarm Biotechnology Co., Ltd', '01711-200053', 'Dhaka', 'Nanjing, China (agent: Banani, Dhaka)', 3686400),
+    S('AIS-000055', 'Shafirul Islam (Agrivision International)', '01711-200055', 'Bogura', 'Mohasthangor, Bogura', 0),
+    S('AIS-000056', 'AGROIRIS (BD) LTD (RAINBOW)', '01711-200056', 'Dhaka', 'Tejgaon I/A, Dhaka', 4551500),
+    S('AIS-000058', 'Pyramid Printing Pack', '01711-200058', 'Bogura', 'Mohasthangor, Bogura', 1200000),
+    S('AIS-000063', 'M F Fashion', '01711-200063', 'Dhaka', 'Mirpur, Dhaka', 70900),
+    S('AIS-000088', 'Bongshe Moharaj & Agro Tecnology', '01711-200088', 'Dhaka', 'Savar, Dhaka', 1790000),
+];
+
+// The next generated code continues the series rather than colliding with it.
+export const SUPPLIER_COUNTER = Math.max(...SUPPLIERS.map(s => Number(s.code.split('-')[1])));
+
+// ══ Expense heads ════════════════════════════════════════════════════════
+// The twenty-four heads that used to be a module-level const in
+// ExpenseHead.js:6. Seeded because the Expense screen selects from them and
+// `expenseByHead()` — the Head Wise Expense report — groups by them.
+//
+// Auto-ID, not a code: a head is renamed often enough that the name is not a
+// safe document key, and `expenses.headId` has to survive a rename.
+
+export const EXPENSE_HEADS = [
+    'Advance Expense', 'Bank Charge', 'Boundary Update Expense', 'Bus Delivery Expense',
+    'Campaign Expense', 'Car Expense', 'Cable Expense', 'Courier Expense',
+    'Electricity Bill', 'Entertainment Expense', 'Fuel Expense', 'Internet Bill',
+    'Labour Cost', 'Labour Delivery Expense', 'Labour Breakfast', 'Meeting Expense',
+    'Manager Expense', 'Office Expense', 'Office Rent', 'Printing Expense',
+    'Rent Expense', 'Salary Expense', 'Stationery Expense', 'Travel Allowance',
+];
+
 export const SAFETY_TEMPLATE = {
     'AI-000102': {
         whoClass: null,           // 'Ia' | 'Ib' | 'II' | 'III' | 'U'  ← from the WHO classification

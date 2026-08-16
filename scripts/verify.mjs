@@ -21,13 +21,22 @@ if (EMULATOR) connectFirestoreEmulator(db, '127.0.0.1', 8080);
 // The Tier 1 collections the seed writes, and the counts it writes them at.
 // Those counts only hold on a FRESHLY seeded database — using the app moves
 // them, which is not a failure. Run this straight after `npm run dev:reset`.
-const COLLECTIONS = ['products', 'customers', 'licences', 'sales', 'sale_items', 'stock_movements', 'users', 'audit_log', 'counters'];
-const EXPECTED = { products: 24, customers: 30, licences: 26, sales: 17, sale_items: 30, stock_movements: 99, users: 12, audit_log: 1, counters: 1 };
+const COLLECTIONS = [
+    'products', 'customers', 'licences', 'sales', 'sale_items', 'stock_movements',
+    'users', 'audit_log', 'counters',
+    // Two Tier 2 masters are seeded, because other screens select from them.
+    'suppliers', 'expense_heads',
+];
+const EXPECTED = {
+    products: 24, customers: 30, licences: 26, sales: 17, sale_items: 30,
+    stock_movements: 99, users: 12, audit_log: 1, counters: 2,
+    suppliers: 20, expense_heads: 24,
+};
 
-// Tier 2 (schema §10). The seed writes none of these, so they are read for the
-// invariants below but not counted — a supplier or a purchase entered by hand
-// is data, not a discrepancy.
-const TIER2 = ['suppliers', 'opening_balances', 'supplier_payments', 'purchases', 'purchase_returns'];
+// The rest of Tier 2 is transactional and starts empty, so it is read for the
+// invariants below but never counted — a purchase entered by hand is data, not
+// a discrepancy.
+const TIER2 = ['opening_balances', 'supplier_payments', 'purchases', 'purchase_returns'];
 
 const load = async (name) => (await getDocs(collection(db, name))).docs.map(d => ({ id: d.id, ...d.data() }));
 const money = (n) => Math.round((Number(n || 0) + Number.EPSILON) * 100) / 100;
