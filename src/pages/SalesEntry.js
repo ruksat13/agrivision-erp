@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     listCustomers, listProducts, getCustomer, getDealerLicences,
-    createSale, licenceStatus, ServiceError, PAYMENT_TYPE, OFFICE,
+    createSale, licenceStatus, formatDate, ServiceError, PAYMENT_TYPE, OFFICE,
 } from '../services';
 import {
     checkSaleRules, applyOverride, removeOverride,
@@ -39,7 +39,12 @@ const btn = (bg, extra = {}) => ({
     padding: '9px 20px', cursor: 'pointer', fontSize: '13px', fontWeight: 600, ...extra,
 });
 
-const today = () => new Date().toISOString().split('T')[0];
+// Local date, never toISOString() — see the note at core.js:101. This seeds
+// saleDate, which createSale() stores and which Feature 1 checks licence expiry
+// against and Feature 2 checks the ban date against. At UTC+6 the UTC form
+// yields yesterday between 00:00 and 06:00 local, gating an early-morning sale
+// on the wrong day's rules.
+const today = () => formatDate(new Date());
 const money = (n) => (Math.round((Number(n || 0) + Number.EPSILON) * 100) / 100);
 const fmt = (n) => money(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
