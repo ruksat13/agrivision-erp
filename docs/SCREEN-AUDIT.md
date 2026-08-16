@@ -48,11 +48,11 @@ styled as active. Pressing it has no effect whatsoever.
 | ~~`src/pages/ProductDemand.js:159`~~ | ~~Save dead~~ **Resolved 16 Aug** — `product_demands`, lines per request (closes §4.3) |
 | ~~`src/pages/BankAccount.js:50`~~ | ~~Save dead; `const [accounts] = useState(...)` (`:59`)~~ **Resolved 16 Aug** — `bank_accounts` |
 | ~~`src/pages/ExpenseHead.js:30`~~ | ~~Save dead; `const [heads] = useState(...)` (`:40`)~~ **Resolved 16 Aug** — `expense_heads` |
-| `src/pages/Expense.js:89` | Save dead. Approve and delete work, add does not |
-| `src/pages/CustomerOpeningBalance.js:80` | Save dead; `const [records] = useState(...)` (`:89`) |
+| ~~`src/pages/Expense.js:89`~~ | ~~Save dead. Approve and delete work, add does not~~ **Resolved 16 Aug** — `expenses`, referencing the `expense_heads` built in group A. Approve and delete now survive a refresh; delete cancels rather than removing |
+| ~~`src/pages/CustomerOpeningBalance.js:80`~~ | ~~Save dead; `const [records] = useState(...)` (`:89`)~~ **Resolved 16 Aug** — `opening_balances`, the customer mode of the same component the supplier screen uses |
 | ~~`src/pages/SupplierOpeningBalance.js:76`~~ | ~~Save dead; `const [records] = useState(...)` (`:85`)~~ **Resolved 16 Aug** — `opening_balances`, and the entry moves the supplier's balance in the same batch |
 | ~~`src/pages/SupplierPayment.js:141`~~ | ~~Add form's Save dead. Edit, approve and delete work~~ **Resolved 16 Aug** — `supplier_payments`. Edit, approve and delete worked on local state and were lost on refresh; all three go through the service layer now, and approve is what moves the payable |
-| `src/pages/CustomerCommission.js:301` | Add form's Save dead |
+| ~~`src/pages/CustomerCommission.js:301`~~ | ~~Add form's Save dead~~ **Resolved 16 Aug** — `commissions`, the customer mode of the same component the supplier screen uses |
 | ~~`src/pages/SupplierCommission.js:189`~~ | ~~Add form's Save dead~~ **Resolved 16 Aug** — `commissions` |
 
 **Effort:** ~0.25 d per screen → **3.5 person-days**
@@ -394,7 +394,8 @@ Updated 15 August 2026. Findings above are struck through where they no longer h
 | §4.1 — selling does not reduce stock | **Resolved for orders raised on the new screen.** `createSale()` writes the movement in the same batch. Stock Report still renders its hardcoded strings |
 | §4.2 — two worlds of *product* master data | **Resolved.** `Product.js` reads Firestore; the `SKU-T100` array is gone |
 | §4.2 — two worlds of *customer* and *employee* data | Outstanding. Same change, same pattern |
-| §2.1 — 14 dead Save buttons | **Groups A and B done, 16 August — 7 of 14.** A: ExpenseHead, BankAccount, Offers, ProductDemand. B: SupplierOpeningBalance, SupplierPayment, SupplierCommission, preceded by the `suppliers` master they all needed. Each was checked against the emulator: the row appears, it is still there after a browser refresh, and where a balance is involved the balance moved with it. Groups C and D outstanding, order in §2.1.1. `Product.js` is **not** one of the 14 — its Save already worked, it just wrote to local state; it is the pattern that was copied |
+| §2.1 — 14 dead Save buttons | **Groups A, B and C done, 16 August — 10 of 14.** A: ExpenseHead, BankAccount, Offers, ProductDemand. B: SupplierOpeningBalance, SupplierPayment, SupplierCommission, preceded by the `suppliers` master they all needed. C: CustomerOpeningBalance, CustomerCommission, Expense. Each was checked against the emulator: the row appears, it is still there after a browser refresh, and where a balance is involved the balance moved with it. **Group D outstanding** — Purchase, PurchaseReturn, Batch, Repacking, the four that write `stock_movements`. `Product.js` is **not** one of the 14 — its Save already worked, it just wrote to local state; it is the pattern that was copied |
+| §5.2 — one component, several routes | Extended. `OpeningBalance.js` and `Commission.js` each serve a customer route and a supplier route from a `party` prop, the way `Categories.js` serves five. Four page files became two components plus four one-line wrappers |
 | §4.2 — two worlds of *supplier* data | **Resolved 16 August**, as a prerequisite of group B. `Supplier.js` reads `suppliers`; the three hardcoded name lists at `SupplierOpeningBalance.js:32`, `SupplierPayment.js:37` and `SupplierCommission.js` are gone and all three post against a real supplier code |
 | §5 — 38 of 40 reports identical | Outstanding; decision 1 above stands |
 

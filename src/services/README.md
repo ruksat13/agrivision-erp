@@ -324,6 +324,7 @@ These are being migrated as the fourteen dead Save buttons of `SCREEN-AUDIT.md`
 | `openingBalances.js` | Customer / Supplier Opening Balance | One collection, two parties. `signedDelta()` is the only place Debit/Credit becomes a sign |
 | `supplierPayments.js` | Supplier Payment | The payable moves on **approve**, not on save |
 | `commissions.js` | Customer / Supplier Commission | One collection, two parties. Awarding a commission does **not** move a balance |
+| `expenses.js` | Expense | References `expense_heads`. `expenseByHead()` is the Head Wise Expense report |
 
 Two conventions worth copying:
 

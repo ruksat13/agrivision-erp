@@ -23,6 +23,7 @@ export const COL = {
     OPENING_BALANCES: 'opening_balances',
     SUPPLIER_PAYMENTS: 'supplier_payments',
     COMMISSIONS: 'commissions',
+    EXPENSES: 'expenses',
 };
 
 // ── products ──────────────────────────────────────────────────────────────
@@ -111,6 +112,10 @@ export const BALANCE_SIGN = {
 // made by some actual method.
 export const PAY_METHOD = ['Cash', 'bKash', 'Nagad', 'Bank Transfer', 'Cheque', 'RTGS'];
 export const PAYMENT_STATUS = ['Pending', 'Approved', 'Cancelled'];
+
+// The Expense screen posts money out AND money in; the badge on each row says
+// which, and Head Wise Expense nets them.
+export const EXPENSE_TYPE = ['Expense', 'Income'];
 
 export const COMMISSION_BASIS = ['Yearly', 'Purchase', 'Invoice', 'Product', 'Travel'];
 export const COMMISSION_METHOD = ['Amount', 'Percentage'];

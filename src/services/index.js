@@ -25,7 +25,7 @@ export {
     OFFER_STATUS, OFFER_TYPE, OFFER_BUY_TYPE, OFFER_MODULE,
     DEMAND_STATUS,
     PARTY, ENTRY_TYPE, OPENING_STATUS, BALANCE_SIGN,
-    PAY_METHOD, PAYMENT_STATUS,
+    PAY_METHOD, PAYMENT_STATUS, EXPENSE_TYPE,
     COMMISSION_BASIS, COMMISSION_METHOD, COMMISSION_STATUS,
     ROLE, AUDIT_ACTION, RULE_CODE,
 } from './constants';
@@ -127,3 +127,9 @@ export {
     getCommission, getCommissionOrThrow, listCommissions, nextCommissionCode,
     commissionFromPercent, createCommission, approveCommission, cancelCommission,
 } from './commissions';
+
+export {
+    getExpense, getExpenseOrThrow, listExpenses, expenseByHead,
+    nextExpenseCode, nextVoucherNo,
+    createExpense, updateExpense, approveExpense, cancelExpense,
+} from './expenses';
