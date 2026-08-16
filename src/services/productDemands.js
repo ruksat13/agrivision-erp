@@ -149,5 +149,12 @@ export async function setDemandStatus(requestNo, status, reason = null) {
     if (status === 'Cancel' && !reason) {
         throw new ServiceError('VALIDATION', 'Cancelling a request needs a reason.');
     }
-    return updateDoc_(COL.PRODUCT_DEMANDS, requestNo, { status }, { reason });
+    // A cancellation is logged as 'delete', which is what every other cancel
+    // path in the system records. Leaving it as the default 'update' put
+    // cancelled requests outside listAudit({ action: 'delete' }) — the one
+    // query that is meant to answer "what was withdrawn, and why".
+    return updateDoc_(COL.PRODUCT_DEMANDS, requestNo, { status }, {
+        reason,
+        action: status === 'Cancel' ? 'delete' : 'update',
+    });
 }
