@@ -36,6 +36,7 @@ import HR from './pages/HR';
 import Customer from './pages/Customer';
 import Supplier from './pages/Supplier';
 import Admin from './pages/Admin';
+import AuditLog from './pages/AuditLog';
 import Employee from './pages/Employee';
 import Mapping from './pages/Mapping';
 import SMS from './pages/SMS';
@@ -165,6 +166,7 @@ function App() {
                       <Route path="/customer" element={<Customer />} />
                       <Route path="/supplier" element={<Supplier />} />
                       <Route path="/admin" element={<Admin />} />
+                      <Route path="/audit-log" element={<AuditLog />} />
                       <Route path="/employee" element={<Employee />} />
                       <Route path="/employee-target" element={<Employee type="Target" />} />
                       <Route path="/office-mapping" element={<Mapping type="Office Mapping" />} />

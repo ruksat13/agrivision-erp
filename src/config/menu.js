@@ -101,6 +101,7 @@ export const menuItems = [
     { name: 'Customer', path: '/customer', icon: '🤝' },
     { name: 'Supplier', path: '/supplier', icon: '🏭' },
     { name: 'Admin', path: '/admin', icon: '🔑' },
+    { name: 'Audit Log', path: '/audit-log', icon: '⚖️' },
     { name: 'Employee', path: '/employee', icon: '👤' },
     { name: 'Employee Target', path: '/employee-target', icon: '🎯' },
     {
