@@ -157,6 +157,7 @@ Legend: **✔︎** required · **✔︎R** required and enforced by Security Rul
 | `firstAidBn` | string \| null | ✔︎ | First-aid note in Bengali |
 | `dosageBn` | string \| null | ✔︎ | Dose per decimal / bigha |
 | `approvedCropsBn` | array\<string\> \| null | ✔︎ | |
+| `safetySource` | string \| null | ✔︎ | **Where the seven above came from** — "Container label, photographed 2026-08-16", or "PLACEHOLDER — demonstration data". Printed on the invoice panel verbatim, and the Product page refuses to save safety figures without it. Added while building Feature 3: §9 of this document is entirely about the provenance of these numbers, and a panel that prints them without saying where they came from is the failure §9 describes |
 
 > **Why `null` and not an absent field.** Feature 3's third requirement is that a product with no
 > safety data prints a visible *"safety data not recorded"* marker rather than silently printing
@@ -337,7 +338,9 @@ safetySnapshot: {
   phiDays: 14,
   reentryHours: 24,
   firstAidBn: '…',
-  dosageBn: '…'
+  dosageBn: '…',
+  approvedCropsBn: […],
+  safetySource: 'Container label, photographed 2026-08-16'
 }
 ```
 

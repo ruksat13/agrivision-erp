@@ -10,7 +10,7 @@
 // ── core ──────────────────────────────────────────────────────────────────
 export {
     ServiceError,
-    setActor, getActor,
+    setActor, getActor, actorScope,
     toTimestamp, toDate, formatDate, toNumber, money,
     listDocs, getById,
 } from './core';
@@ -36,7 +36,7 @@ export {
     getProduct, getProductOrThrow, listProducts, productOptions,
     createProduct, updateProduct, deactivateProduct,
     banProduct, unbanProduct, isBannedOn, listBannedProducts,
-    setSafetyData, hasSafetyData, safetySnapshot,
+    setSafetyData, hasSafetyData, safetySnapshot, SIGNAL_WORD_BN,
 } from './products';
 
 // ── customers (dealers) ───────────────────────────────────────────────────

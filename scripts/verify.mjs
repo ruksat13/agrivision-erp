@@ -190,6 +190,35 @@ const company = data.licences.filter(l => l.scope === 'company');
 check('3 company licences seeded', company.length === 3,
     company.map(l => l.licenceType).join(', '));
 
+// Feature 3. Two assertions, and the second matters more than the first: safety
+// figures that print without saying where they came from are the failure §9 of
+// the schema doc exists to prevent, and the panel prints `safetySource`
+// verbatim. If a placeholder ever loses its label, this fails loudly here
+// rather than quietly on a printed invoice.
+const AGRO = ['Pesticide', 'PGR', 'Fertilizer'];
+const withSafety = data.products.filter(p => p.whoClass || p.dosageBn || p.firstAidBn);
+check('2 products carry safety data, for the Feature 3 panel', withSafety.length === 2,
+    withSafety.map(p => `${p.id} (WHO ${p.whoClass})`).join(', '));
+check('every product carrying safety data states its source', withSafety.every(p => !!p.safetySource));
+check('the seeded safety data is labelled as a PLACEHOLDER',
+    withSafety.every(p => /placeholder/i.test(p.safetySource || '')));
+check('the two panels differ in hazard class, so the colour coding is visible',
+    new Set(withSafety.map(p => p.whoClass)).size === 2,
+    withSafety.map(p => p.whoClass).join(' vs '));
+
+// The marker path is the one most lines take, so it is worth asserting that it
+// is reached rather than assuming it.
+const agroLines = data.sale_items.filter(i => AGRO.includes(i.category));
+const marked = agroLines.filter(i => !i.safetySnapshot);
+check('most agrochemical sale lines print the "not recorded" marker',
+    marked.length > 0 && marked.length < agroLines.length,
+    `${marked.length} of ${agroLines.length} lines have no snapshot`);
+check('a sale line snapshot matches the product it was taken from',
+    agroLines.filter(i => i.safetySnapshot).every(i => {
+        const p = data.products.find(x => x.id === i.productId);
+        return p && i.safetySnapshot.whoClass === p.whoClass;
+    }));
+
 // ── Result ────────────────────────────────────────────────────────────────
 console.log(failures === 0
     ? `\nAll checks passed. ${total} documents.\n`

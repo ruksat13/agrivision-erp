@@ -142,7 +142,7 @@ Firestore collections without settling them migrates the confusion into the data
 | 4 | `src/pages/Accounts.js` (171 lines) | — | **Never imported anywhere.** Same dead code |
 | 5 | `src/pages/Delivery.js:140-145` vs `:202` | Delivery Order | The form collects customer, area, date and items; the table shows only Order ID, Amount and Status. **Half of what is entered can never be seen.** The columns were dropped in the most recent commit; the form was not |
 | 6 | `src/pages/Employee.js:59` | Employee Target achievement | `Math.floor(row.target * (0.7 + Math.random() * 0.4))` — **regenerated on every render.** Typing anywhere on the page makes the achievement figures and progress bars jump |
-| 7 | `src/pages/Sales.js:171` | Tab badges Confirm = 47, Delivered = 21121 | Actual row counts are 12 and 22. The header counts contradict the table |
+| 7 | ~~`src/pages/Sales.js:171`~~ | Tab badges Confirm = 47, Delivered = 21121 | Actual row counts were 12 and 22. **Resolved 17 August** — every badge is counted from the same `listSales()` result the table renders, so the two cannot disagree |
 | 8 | 38 Reports routes | Purchase Report, Expense Report, Due Report … | All render the same sales table (see §5) |
 | 9 | `src/pages/Sales.js:420`, `src/pages/Damage.js:73` | — | Typographical: "Invoise", "Damage qat" |
 
@@ -212,8 +212,13 @@ still a hardcoded string array: `Purchase.js:48-49`, `Batch.js:23-24`,
   request; the detail shows the ones actually asked for, with the stock figure as it stood that day
 - ~~`src/pages/Purchase.js:89-95` — every purchase invoice shows one hardcoded line,
   "Agri Zink (packet) 1kg, 310"~~ **Resolved 16 August.** The invoice reads `purchase_items`
-- `src/pages/Sales.js:12` — `mockItems()` fabricates invoice lines by splitting the total 60/40;
-  Due Balance is `grandTotal * 3.5` (`Sales.js:143`)
+- ~~`src/pages/Sales.js:12` — `mockItems()` fabricates invoice lines by splitting the total 60/40;
+  Due Balance is `grandTotal * 3.5` (`Sales.js:143`)~~ **Resolved 17 August.** The modal loads
+  `getSaleWithItems(invoiceNo)` and prints the real lines, real totals and `sale.dueAmount`. The
+  register behind it reads `listSales()` under `actorScope()`, so `confirmRows`, `deliveredRows` and
+  `searchOnlyRows` are gone too, and the tab badges are counted from the rows the table is showing
+  rather than being the constants of defect 7 in §2.3. This had to happen before Feature 3: a line
+  invented at render time has no product behind it to carry safety data
 
 ### 4.4 Broken workflow chains
 
@@ -236,7 +241,9 @@ still a hardcoded string array: `Purchase.js:48-49`, `Batch.js:23-24`,
   without a schema change
 - `src/pages/Reports.js:99-101` — `fromDate` and `toDate` are never read; the Filter button has no
   `onClick` (`:136`). **The date filter is decorative on all 40 reports**
-- `src/pages/Sales.js:306-310` — date, status, discount and office are never applied; only `search` is
+- ~~`src/pages/Sales.js:306-310` — date, status, discount and office are never applied; only `search` is~~
+  **Resolved 17 August.** Date, office and discount all filter now; the status tabs are the status
+  filter, so the redundant select was dropped rather than wired twice
 - `src/pages/SalesReturn.js:316` — Go is `onClick={() => {}}`
 - `src/pages/SupplierPurchase.js:147`, `src/pages/CashCollection.js:371` — Go has no `onClick`
 - `src/pages/StockReport.js:89` export, `src/pages/CustomerLedger.js:206` and

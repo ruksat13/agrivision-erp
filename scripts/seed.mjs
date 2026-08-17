@@ -30,6 +30,7 @@ import {
     COMPANY_LICENCES, dealerLicences, openingStock, OFFICES,
     SUPPLIERS, SUPPLIER_COUNTER, EXPENSE_HEADS,
     DEMO_PASSWORD, OFFICER_PERMISSIONS,
+    SAFETY_DATA, EMPTY_SAFETY, safetyFor, PLACEHOLDER_SOURCE,
 } from './seed-data.mjs';
 import { seedAuth } from './seed-auth.mjs';
 
@@ -141,14 +142,10 @@ function seedProducts() {
             bannedFrom: ts(p.bannedFrom),
             bannedReason: p.bannedReason ?? null,
             bannedAuthority: p.bannedAuthority ?? null,
-            // Feature 3 — null on purpose; see the note in seed-data.mjs
-            whoClass: null,
-            signalWordBn: null,
-            phiDays: null,
-            reentryHours: null,
-            firstAidBn: null,
-            dosageBn: null,
-            approvedCropsBn: null,
+            // Feature 3 — null on every product except the two PLACEHOLDER
+            // entries in SAFETY_DATA. See the block above it in seed-data.mjs.
+            ...EMPTY_SAFETY,
+            ...(safetyFor(p.code) || {}),
             // Feature 4 — reserved
             requiresExpiry: false,
             createdAt: serverTimestamp(),
@@ -367,7 +364,11 @@ function seedSales() {
                 officerId: officer.code,
                 territoryId: dealer.territoryId,
                 areaId: dealer.areaId,
-                safetySnapshot: null,        // no safety data seeded — see seed-data.mjs
+                // What safetySnapshot() in services/products.js would have
+                // copied at the moment of sale. Null for every product with
+                // nothing recorded, which is most of them — and null is what
+                // makes the invoice print its "not recorded" marker.
+                safetySnapshot: safetyFor(l.product.code),
                 createdAt: serverTimestamp(),
             });
             items += 1;
@@ -516,18 +517,24 @@ Ready to demonstrate:
   · 3 dealers with an EXPIRED pesticide licence, 2 expiring within a month,
     1 with none at all  → Feature 1
   · 2 products banned from a stated date         → Feature 2
+  · 2 products with PLACEHOLDER safety data      → Feature 3
+    AI-000101 (WHO Ib, red) and AI-000104 (WHO II, amber). Print
+    AINV-2026-07-0034519 to see both colours, or AINV-2026-07-0034303 to see
+    a panel beside two "safety data not recorded" markers.
   · ${sales.sales} invoices, ${sales.items} lines, 2 of them cancelled with a reason
   · ${SUPPLIERS.length} suppliers and ${EXPENSE_HEADS.length} expense heads, so no dropdown on the
     supplier, purchase or expense screens opens empty
 
 Two things still need you:
 
-  1. SAFETY DATA IS EMPTY on every product. That is deliberate — inventing
-     pre-harvest intervals or first-aid text would put unverifiable safety
-     claims in front of an examiner. Photograph five product labels and fill in
-     SAFETY_TEMPLATE in scripts/seed-data.mjs. Until then the invoice prints
-     its "safety data not recorded" marker, which is Feature 3's own third
-     requirement, so nothing is broken.
+  1. THE SAFETY DATA ON ${Object.keys(SAFETY_DATA).join(' AND ')} IS A PLACEHOLDER. It exists
+     only so the panel and its hazard colours can be seen. Every invoice that
+     carries it prints, underneath the figures:
+         "${PLACEHOLDER_SOURCE}"
+     so nothing printed can be taken for authored safety data. The other
+     ${PRODUCTS.length - Object.keys(SAFETY_DATA).length} products carry nothing and print the "safety data not recorded"
+     marker, which is Feature 3's own third requirement. Photograph the labels
+     and fill in SAFETY_TEMPLATE, or use the ⚕ Safety button on the Product page.
 
   2. bannedAuthority on AI-000905 and AI-000906 is a PLACEHOLDER. Replace it
      with a real DAE notification reference before submission.

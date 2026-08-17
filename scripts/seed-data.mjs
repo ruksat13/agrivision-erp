@@ -11,10 +11,11 @@
 // ─────────────────────────────────────────────────────────────────────────
 // TWO THINGS ARE DELIBERATELY NOT INVENTED HERE — see §9 of the schema doc:
 //
-//   1. Safety data (whoClass, phiDays, firstAidBn, dosageBn …) is seeded as
-//      null on every product. Filling it in from memory would put unverifiable
-//      agricultural safety claims in front of an examiner. Photograph five
-//      product labels and use SAFETY_TEMPLATE at the bottom of this file.
+//   1. Safety data (whoClass, phiDays, firstAidBn, dosageBn …) is null on
+//      eighteen of the twenty products, and PLACEHOLDER on the two that carry
+//      any — see SAFETY_DATA near the bottom of this file. Filling it in from
+//      memory would put unverifiable agricultural safety claims in front of an
+//      examiner. Photograph the labels and use SAFETY_TEMPLATE.
 //
 //   2. The `bannedAuthority` strings below are PLACEHOLDERS. Replace them with
 //      a real DAE / gazette notification reference before submission —
@@ -323,17 +324,94 @@ export function openingStock(products) {
     return rows;
 }
 
-// ══ Safety data template (Feature 3) ═════════════════════════════════════
+// ══ Safety data (Feature 3) ══════════════════════════════════════════════
 //
-// NOT seeded — every product is written with null safety fields on purpose.
+//   ██  EVERYTHING IN SAFETY_DATA BELOW IS A PLACEHOLDER.  ██
 //
-// Photograph five product labels (one shop visit; a single label carries the
-// hazard class, signal word, PHI, first aid and approved crops), then fill
-// this in and call setSafetyData() for each, or paste it into PRODUCTS.
+// Two products, and only two, carry safety figures. They are here so the
+// invoice panel and its hazard-class colour coding can be SEEN — nothing else.
+// They were not read off a label, they were not checked against the WHO
+// classification, and they must not be quoted, screenshotted as fact, or left
+// in place when the real data arrives.
 //
-// Leaving the other products null is correct, not a gap: Feature 3's third
-// requirement is that a product with no safety data prints a visible
-// "safety data not recorded" marker.
+// Every one of them carries `safetySource: PLACEHOLDER_SOURCE`, which the
+// invoice panel prints verbatim underneath the figures. That is deliberate: it
+// means a printed copy of one of these invoices says on its face that its
+// safety figures are demonstration data, so a page that escapes into a slide
+// deck or a report cannot be mistaken for the real thing.
+//
+// The other twenty products stay null and print
+// "নিরাপত্তা তথ্য সংরক্ষিত নেই". That is not a gap to apologise for — it is
+// Feature 3's own third requirement, and FIRESTORE-SCHEMA.md §9.3 rates it a
+// stronger demonstration than twenty products of plausible-looking numbers.
+//
+// TO REPLACE THIS WITH REAL DATA: photograph the container labels (one shop
+// visit; a single label carries hazard class, signal word, PHI, re-entry, first
+// aid and approved crops), then either edit the entries here or use the
+// ⚕ Safety button on the Product page, which writes the same fields through
+// setSafetyData(). Set `safetySource` to where you got it and the PLACEHOLDER
+// line stops printing.
+
+export const PLACEHOLDER_SOURCE = 'PLACEHOLDER — demonstration data, not from a product label';
+
+// Bengali, and it says so in Bengali as well as in the source line, because the
+// dealer reading the invoice reads Bengali and the examiner reads the source.
+const PLACEHOLDER_FIRST_AID = 'নমুনা তথ্য — প্রদর্শনের জন্য; লেবেল থেকে নেওয়া হয়নি। প্রকৃত নির্দেশনার জন্য কৌটার গায়ের লেবেল দেখুন।';
+const PLACEHOLDER_DOSE = 'নমুনা তথ্য — প্রদর্শনের জন্য; প্রকৃত মাত্রা লেবেল দেখে নিন।';
+
+/**
+ * The two are chosen so that one invoice shows both hazard colours and another
+ * shows a panel beside a marker:
+ *
+ *   AINV-2026-07-0034519  Cupertino (II, amber) + Jassquate (Ib, red)
+ *   AINV-2026-07-0034303  Cupertino (II, amber) + two products with nothing
+ *
+ * `signalWordBn` follows the conventional mapping recorded in
+ * FIRESTORE-SCHEMA.md §9.2 (Ia/Ib → অতি বিষাক্ত · II → বিষাক্ত · III/U →
+ * সতর্কতা) rather than being made up here. The hazard classes and the two
+ * numbers are not derived from anything and are the reason this block is
+ * labelled as loudly as it is.
+ */
+export const SAFETY_DATA = {
+    'AI-000101': {                        // Jassquate 61sl 100 Ml
+        whoClass: 'Ib',
+        signalWordBn: 'অতি বিষাক্ত',
+        phiDays: 21,
+        reentryHours: 48,
+        firstAidBn: PLACEHOLDER_FIRST_AID,
+        dosageBn: PLACEHOLDER_DOSE,
+        approvedCropsBn: null,
+        safetySource: PLACEHOLDER_SOURCE,
+    },
+    'AI-000104': {                        // Cupertino 72wp Blue 100 Gm
+        whoClass: 'II',
+        signalWordBn: 'বিষাক্ত',
+        phiDays: 14,
+        reentryHours: 24,
+        firstAidBn: PLACEHOLDER_FIRST_AID,
+        dosageBn: PLACEHOLDER_DOSE,
+        approvedCropsBn: null,
+        safetySource: PLACEHOLDER_SOURCE,
+    },
+};
+
+/** The shape written to products, and copied onto each sale line. Nulls, not
+ *  omissions — "unknown" has to be distinguishable from "field missing". */
+export const EMPTY_SAFETY = {
+    whoClass: null,
+    signalWordBn: null,
+    phiDays: null,
+    reentryHours: null,
+    firstAidBn: null,
+    dosageBn: null,
+    approvedCropsBn: null,
+    safetySource: null,
+};
+
+/** Mirrors safetySnapshot() in src/services/products.js. */
+export function safetyFor(code) {
+    return SAFETY_DATA[code] || null;
+}
 
 // ══ Suppliers ════════════════════════════════════════════════════════════
 // Lifted from the sample arrays in the three supplier screens — the codes are
@@ -400,6 +478,7 @@ export const EXPENSE_HEADS = [
     'Rent Expense', 'Salary Expense', 'Stationery Expense', 'Travel Allowance',
 ];
 
+/** The shape to fill in from a photographed label, for reference. */
 export const SAFETY_TEMPLATE = {
     'AI-000102': {
         whoClass: null,           // 'Ia' | 'Ib' | 'II' | 'III' | 'U'  ← from the WHO classification
@@ -409,5 +488,6 @@ export const SAFETY_TEMPLATE = {
         firstAidBn: null,         // first-aid note, Bengali           ← from the label
         dosageBn: null,           // dose per decimal / bigha          ← from the label
         approvedCropsBn: null,    // ['ধান', 'আলু', …]                  ← from the label
+        safetySource: null,       // where the six above came from — printed on the invoice
     },
 };

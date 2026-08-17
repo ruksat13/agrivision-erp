@@ -2,8 +2,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
     listProducts, createProduct, deactivateProduct,
     banProduct, unbanProduct, isBannedOn, formatDate,
-    ServiceError, PRODUCT_CATEGORY, PRODUCT_TYPE, UNIT,
+    setSafetyData, hasSafetyData, SIGNAL_WORD_BN,
+    ServiceError, PRODUCT_CATEGORY, PRODUCT_TYPE, UNIT, WHO_CLASS,
 } from '../services';
+import { HAZARD, BENGALI_FONT, isAgrochemical } from '../components/SafetyPanel';
 
 // Product master, backed by Firestore.
 //
@@ -13,6 +15,12 @@ import {
 // so that adding it produces a visible refusal. Filtering it out of the
 // dropdown would conceal the control instead of demonstrating it
 // (UNIQUE-FEATURES.md §5).
+//
+// Carries the Feature 3 fields too, set the same way from the same table: WHO
+// hazard class, Bengali signal word, pre-harvest interval, re-entry period,
+// Bengali first-aid note — plus where each came from. They are copied onto
+// every sale line as it is written and printed on the invoice by
+// src/components/SafetyPanel.js.
 
 const card = {
     backgroundColor: 'white',
@@ -121,6 +129,184 @@ function BanModal({ product, onCancel, onConfirm, busy }) {
     );
 }
 
+// ── Safety dialog (Feature 3) ─────────────────────────────────────────────
+
+// Bengali text needs a Bengali font in the input as well as on the invoice,
+// otherwise the author cannot see what they are typing.
+const bnInp = { ...inp, fontFamily: BENGALI_FONT, fontSize: '14px' };
+
+const cropsToText = (v) => (Array.isArray(v) ? v.join(', ') : (v || ''));
+const textToCrops = (s) => {
+    const list = String(s || '').split(',').map(x => x.trim()).filter(Boolean);
+    return list.length ? list : null;
+};
+
+/**
+ * Feature 3's editor. Deliberately the same shape as BanModal — these are the
+ * two places where a regulatory fact is attached to a product, and they should
+ * not feel like different features.
+ *
+ * The one thing this dialog insists on is `safetySource`. Every other field can
+ * be left empty, but numbers with no stated origin are the exact failure
+ * FIRESTORE-SCHEMA.md §9 was written to prevent, and the invoice prints this
+ * line whatever it says.
+ */
+function SafetyModal({ product, onCancel, onConfirm, onClear, busy }) {
+    const [f, setF] = useState({
+        whoClass: product.whoClass || '',
+        signalWordBn: product.signalWordBn || '',
+        phiDays: product.phiDays == null ? '' : String(product.phiDays),
+        reentryHours: product.reentryHours == null ? '' : String(product.reentryHours),
+        firstAidBn: product.firstAidBn || '',
+        dosageBn: product.dosageBn || '',
+        approvedCropsBn: cropsToText(product.approvedCropsBn),
+        safetySource: product.safetySource || '',
+    });
+
+    const set = (k, v) => setF(prev => ({ ...prev, [k]: v }));
+
+    // Picking a class offers the conventional signal word, but only into an
+    // empty box and only where the author can see and change it. The wording
+    // that counts is the one printed on the container.
+    const pickClass = (whoClass) => setF(prev => ({
+        ...prev,
+        whoClass,
+        signalWordBn: prev.signalWordBn || SIGNAL_WORD_BN[whoClass] || '',
+    }));
+
+    const anything = Boolean(
+        f.whoClass || f.signalWordBn.trim() || f.phiDays || f.reentryHours
+        || f.firstAidBn.trim() || f.dosageBn.trim() || f.approvedCropsBn.trim(),
+    );
+    const ready = !anything || f.safetySource.trim();
+    const had = hasSafetyData(product);
+    const h = HAZARD[f.whoClass] || { band: '#5f6368', ink: '#fff', tint: '#f4f5f6', edge: '#9aa0a6' };
+
+    return (
+        <div onClick={e => e.target === e.currentTarget && onCancel()}
+            style={{
+                position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000,
+                display: 'flex', alignItems: 'flex-start', justifyContent: 'center', overflowY: 'auto', padding: '40px 20px',
+            }}>
+            <div style={{ background: 'white', borderRadius: 10, width: 640, maxWidth: '98%' }}>
+                <div style={{ background: h.band, color: h.ink, padding: '14px 20px', borderRadius: '10px 10px 0 0' }}>
+                    <div style={{ fontWeight: 700, fontSize: 15 }}>⚕ Safety and dosage data</div>
+                    <div style={{ fontSize: 12, opacity: 0.9, marginTop: 2 }}>{product.name} [{product.code}]</div>
+                </div>
+
+                <div style={{ padding: 20 }}>
+                    <div style={{ background: '#f8d7da', border: '1px solid #dc3545', color: '#721c24', borderRadius: 6, padding: '9px 12px', fontSize: 12, marginBottom: 16, lineHeight: 1.6 }}>
+                        <strong>Copy from the container label or the manufacturer's leaflet only.</strong> These
+                        figures print on the dealer's invoice in Bengali. A guessed pre-harvest interval
+                        or first-aid instruction is worse than leaving the fields empty — empty prints a
+                        visible <em>“safety data not recorded”</em> marker, which is honest.
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 12 }}>
+                        <div>
+                            <label style={lbl}>WHO hazard class</label>
+                            <select value={f.whoClass} onChange={e => pickClass(e.target.value)} style={inp}>
+                                <option value="">— not recorded —</option>
+                                {WHO_CLASS.map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                            <div style={{ fontSize: 11, color: '#6c757d', marginTop: 4 }}>
+                                Sets the colour band on the invoice panel.
+                            </div>
+                        </div>
+
+                        <div>
+                            <label style={lbl}>Bengali signal word</label>
+                            <input value={f.signalWordBn} onChange={e => set('signalWordBn', e.target.value)}
+                                placeholder="অতি বিষাক্ত / বিষাক্ত / সতর্কতা" style={bnInp} />
+                            <div style={{ fontSize: 11, color: '#6c757d', marginTop: 4 }}>
+                                {f.whoClass
+                                    ? <>Conventional for {f.whoClass}: <strong style={{ fontFamily: BENGALI_FONT }}>{SIGNAL_WORD_BN[f.whoClass]}</strong>. Use the container's wording if it differs.</>
+                                    : 'Whatever the container prints.'}
+                            </div>
+                        </div>
+
+                        <div>
+                            <label style={lbl}>Pre-harvest interval (days)</label>
+                            <input type="number" min="0" value={f.phiDays} onChange={e => set('phiDays', e.target.value)}
+                                placeholder="e.g. 14" style={inp} />
+                            <div style={{ fontSize: 11, color: '#6c757d', marginTop: 4 }}>
+                                Varies by crop — record the label's figure for the crop it is sold for.
+                            </div>
+                        </div>
+
+                        <div>
+                            <label style={lbl}>Re-entry period (hours)</label>
+                            <input type="number" min="0" value={f.reentryHours} onChange={e => set('reentryHours', e.target.value)}
+                                placeholder="e.g. 24" style={inp} />
+                        </div>
+                    </div>
+
+                    <div style={{ marginTop: 14 }}>
+                        <label style={lbl}>First-aid note (Bengali)</label>
+                        <textarea value={f.firstAidBn} onChange={e => set('firstAidBn', e.target.value)} rows={2}
+                            placeholder="প্রাথমিক চিকিৎসার নির্দেশনা — লেবেল থেকে হুবহু লিখুন"
+                            style={{ ...bnInp, resize: 'vertical' }} />
+                    </div>
+
+                    <div style={{ marginTop: 14 }}>
+                        <label style={lbl}>Dose (Bengali)</label>
+                        <textarea value={f.dosageBn} onChange={e => set('dosageBn', e.target.value)} rows={2}
+                            placeholder="প্রতি শতকে / বিঘায় প্রয়োগমাত্রা"
+                            style={{ ...bnInp, resize: 'vertical' }} />
+                    </div>
+
+                    <div style={{ marginTop: 14 }}>
+                        <label style={lbl}>Approved crops (Bengali, comma separated)</label>
+                        <input value={f.approvedCropsBn} onChange={e => set('approvedCropsBn', e.target.value)}
+                            placeholder="ধান, আলু, বেগুন" style={bnInp} />
+                    </div>
+
+                    <div style={{ marginTop: 14 }}>
+                        <label style={lbl}>
+                            Source {anything && <span style={{ color: '#dc3545' }}>*</span>}
+                        </label>
+                        <input value={f.safetySource} onChange={e => set('safetySource', e.target.value)}
+                            placeholder="e.g. Container label, photographed 2026-08-16" style={inp} />
+                        <div style={{ fontSize: 11, color: '#6c757d', marginTop: 4 }}>
+                            Printed on the invoice underneath the panel, exactly as written here. Say
+                            “PLACEHOLDER” if these are demonstration figures rather than label figures.
+                        </div>
+                    </div>
+
+                    {anything && !f.safetySource.trim() && (
+                        <div style={{ background: '#fff8e1', border: '1px solid #ffc107', borderRadius: 6, padding: '9px 12px', fontSize: 12, color: '#856404', marginTop: 14 }}>
+                            Safety figures with no stated source cannot be saved. Where did these come from?
+                        </div>
+                    )}
+                </div>
+
+                <div style={{ padding: '14px 20px', borderTop: '1px solid #e9ecef', display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                    {had && (
+                        <button onClick={onClear} disabled={busy} style={{ ...btn('#6c757d'), marginRight: 'auto' }}>
+                            Clear safety data
+                        </button>
+                    )}
+                    <button onClick={onCancel} style={btn('#6c757d')}>Cancel</button>
+                    <button disabled={!ready || busy}
+                        onClick={() => onConfirm({
+                            whoClass: f.whoClass || null,
+                            signalWordBn: f.signalWordBn.trim() || null,
+                            phiDays: f.phiDays === '' ? null : Number(f.phiDays),
+                            reentryHours: f.reentryHours === '' ? null : Number(f.reentryHours),
+                            firstAidBn: f.firstAidBn.trim() || null,
+                            dosageBn: f.dosageBn.trim() || null,
+                            approvedCropsBn: textToCrops(f.approvedCropsBn),
+                            safetySource: f.safetySource.trim() || null,
+                        })}
+                        style={{ ...btn(ready && !busy ? '#28a745' : '#adb5bd'), cursor: ready && !busy ? 'pointer' : 'not-allowed' }}>
+                        {busy ? 'Saving…' : 'Save safety data'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────
 
 function Product() {
@@ -137,6 +323,7 @@ function Product() {
     });
 
     const [banTarget, setBanTarget] = useState(null);
+    const [safetyTarget, setSafetyTarget] = useState(null);
     const [busy, setBusy] = useState(false);
 
     // status: null → every status, so a deactivated product is still visible here
@@ -174,6 +361,8 @@ function Product() {
     });
 
     const banned = data.filter(p => p.bannedFrom);
+    const agro = data.filter(isAgrochemical);
+    const withSafety = agro.filter(hasSafetyData);
 
     // ── Actions ──────────────────────────────────────────────────────────
     const handleAdd = async () => {
@@ -202,6 +391,19 @@ function Product() {
             await banProduct(banTarget.code, { from, reason, authority });
             say('ok', `${banTarget.name} withdrawn from ${from}. It will now be refused on the order screen.`);
             setBanTarget(null);
+            await load();
+        } catch (err) { fail(err); } finally { setBusy(false); }
+    };
+
+    const handleSafety = async (safety) => {
+        setBusy(true);
+        try {
+            await setSafetyData(safetyTarget.code, safety);
+            const any = Object.values(safety).some(v => v != null);
+            say('ok', any
+                ? `Safety data saved for ${safetyTarget.name}. It prints on every invoice raised from now on.`
+                : `Safety data cleared for ${safetyTarget.name}. Its invoices print the “not recorded” marker.`);
+            setSafetyTarget(null);
             await load();
         } catch (err) { fail(err); } finally { setBusy(false); }
     };
@@ -247,11 +449,13 @@ function Product() {
                     { label: 'Total Products', value: data.length, colour: '#0d6efd' },
                     { label: 'Active', value: data.filter(d => d.status === 'Active').length, colour: '#28a745' },
                     { label: 'Withdrawn / banned', value: banned.length, colour: '#dc3545' },
+                    { label: 'Safety data recorded', value: `${withSafety.length} / ${agro.length}`, colour: '#20c997', hint: 'agrochemicals' },
                     { label: 'Catalogue value (MRP)', value: `৳ ${fmt(data.reduce((s, d) => s + Number(d.mrp || 0), 0))}`, colour: '#6f42c1', small: true },
                 ].map(c => (
                     <div key={c.label} style={{ ...card, textAlign: 'center', borderTop: `4px solid ${c.colour}` }}>
                         <p style={{ color: '#6c757d', fontSize: 13, margin: '0 0 8px' }}>{c.label}</p>
                         <p style={{ fontSize: c.small ? 17 : 22, fontWeight: 'bold', margin: 0, color: c.colour }}>{c.value}</p>
+                        {c.hint && <p style={{ color: '#adb5bd', fontSize: 11, margin: '4px 0 0' }}>{c.hint}</p>}
                     </div>
                 ))}
             </div>
@@ -343,7 +547,7 @@ function Product() {
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
                             <tr style={{ backgroundColor: '#f8f9fa' }}>
-                                {['#', 'Code', 'Name', 'Category', 'Pack', 'MRP', 'Status', 'Action'].map(h => (
+                                {['#', 'Code', 'Name', 'Category', 'Pack', 'MRP', 'Safety', 'Status', 'Action'].map(h => (
                                     <th key={h} style={th}>{h}</th>
                                 ))}
                             </tr>
@@ -357,6 +561,8 @@ function Product() {
                                 // the field being a date rather than a flag.
                                 const inForce = isBanned && isBannedOn(row, new Date());
                                 const inactive = row.status !== 'Active';
+                                const safe = hasSafetyData(row);
+                                const hz = HAZARD[row.whoClass];
                                 return (
                                     <tr key={row.code} style={{
                                         borderBottom: '1px solid #f0f0f0',
@@ -386,6 +592,28 @@ function Product() {
                                             <div style={{ fontSize: 11, color: '#6c757d' }}>carton {row.cartonQty}</div>
                                         </td>
                                         <td style={{ ...td, fontWeight: 'bold', whiteSpace: 'nowrap' }}>৳ {fmt(row.mrp)}</td>
+
+                                        {/* Feature 3 at a glance. A blank cell on a bucket is
+                                            correct; a blank cell on a pesticide is the backlog. */}
+                                        <td style={{ ...td, whiteSpace: 'nowrap' }}>
+                                            {!isAgrochemical(row) ? (
+                                                <span style={{ color: '#ced4da', fontSize: 12 }}>n/a</span>
+                                            ) : safe ? (
+                                                <span title={`WHO ${row.whoClass || '—'}${row.safetySource ? ` · source: ${row.safetySource}` : ''}`}
+                                                    style={{
+                                                        background: hz ? hz.band : '#5f6368', color: hz ? hz.ink : '#fff',
+                                                        padding: '3px 9px', borderRadius: 4, fontSize: 11, fontWeight: 700,
+                                                    }}>
+                                                    WHO {row.whoClass || '—'}
+                                                </span>
+                                            ) : (
+                                                <span title="Prints the “safety data not recorded” marker on every invoice"
+                                                    style={{ color: '#856404', background: '#fff8e1', border: '1px solid #ffe082', padding: '3px 8px', borderRadius: 4, fontSize: 11 }}>
+                                                    not recorded
+                                                </span>
+                                            )}
+                                        </td>
+
                                         <td style={{ ...td, whiteSpace: 'nowrap' }}>
                                             {isBanned ? (
                                                 <span title={inForce ? `Withdrawn from ${bannedOn}` : `Withdrawal takes effect on ${bannedOn}`}
@@ -404,6 +632,13 @@ function Product() {
                                             )}
                                         </td>
                                         <td style={{ ...td, whiteSpace: 'nowrap' }}>
+                                            {isAgrochemical(row) && (
+                                                <button onClick={() => setSafetyTarget(row)} disabled={busy}
+                                                    title="Safety and dosage data printed on the invoice"
+                                                    style={btn(safe ? '#20c997' : '#0d6efd', { padding: '4px 10px', fontSize: 12, marginRight: 5 })}>
+                                                    ⚕ Safety
+                                                </button>
+                                            )}
                                             {isBanned ? (
                                                 <button onClick={() => handleUnban(row)} disabled={busy} title="Lift the ban"
                                                     style={btn('#28a745', { padding: '4px 10px', fontSize: 12 })}>
@@ -437,6 +672,13 @@ function Product() {
             {banTarget && (
                 <BanModal product={banTarget} busy={busy}
                     onCancel={() => setBanTarget(null)} onConfirm={handleBan} />
+            )}
+
+            {safetyTarget && (
+                <SafetyModal product={safetyTarget} busy={busy}
+                    onCancel={() => setSafetyTarget(null)}
+                    onConfirm={handleSafety}
+                    onClear={() => handleSafety({})} />
             )}
         </div>
     );

@@ -242,6 +242,40 @@ block disappear.
 
 ### Feature 3 — Bengali Safety and Dosage Panel on the Invoice
 
+**Status: IMPLEMENTED (17 August 2026), with placeholder data.**
+`src/components/SafetyPanel.js` holds the panel; `src/pages/Product.js` sets the
+fields; `src/pages/Sales.js` prints them. Parts 1, 2 and 3 below are built and
+tested against the local emulator, on screen **and in the print window**.
+
+**The safety content is not authored yet, and the system says so on the page.**
+Two products — `AI-000101` (WHO Ib, red) and `AI-000104` (WHO II, amber) — carry
+demonstration figures so the panel and its colour coding can be seen. Every one
+of them prints *"তথ্যসূত্র: PLACEHOLDER — demonstration data, not from a product
+label"* underneath the numbers, because a `safetySource` field was added
+alongside the five in §9.3 and the panel prints it whatever it says. A printed
+copy of one of these invoices therefore states on its own face that its figures
+are demonstration data. The other twenty-two products carry nothing and print
+*"নিরাপত্তা তথ্য সংরক্ষিত নেই"*, which is requirement 3 and, per
+`FIRESTORE-SCHEMA.md` §9.3, the stronger demonstration.
+
+**What the invoice modal used to be is worth recording.** It rendered
+`mockItems()` — two hardcoded product names with the row's total split 60/40
+between them, and a Due Balance of `grandTotal * 3.5`. Feature 3 could not have
+been built on it: a line invented at render time has no product behind it to
+carry safety data. `Sales.js` now reads `sales` and `sale_items` and the panel
+prints `sale_items.safetySnapshot`, so **reprinting a July invoice shows the
+advice that was current in July**, not today's. That is tested: recording safety
+data against a product from the Product page leaves invoices raised before it
+printing their marker.
+
+**The print path was the risk this section flagged, and it was real.** The
+window is blank and gets a whole document written into it, so it inherits
+nothing — the injected stylesheet now carries `<meta charset="utf-8">` and a
+font stack of Bengali families that ship with an operating system (Nirmala UI,
+Noto Sans Bengali, Kohinoor Bangla, Lohit). Deliberately no webfont: `print()`
+is called a line after the document is written, and a font still downloading at
+that moment prints as empty boxes.
+
 **The problem.** The dealer is the last person who speaks to the farmer, and dosage and safety advice
 is passed on verbally or not at all. Misuse of agrochemicals in Bangladesh is a recognised
 agricultural extension problem. The invoice is the one document that reliably reaches the dealer.

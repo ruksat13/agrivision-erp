@@ -28,6 +28,7 @@ const NULLABLE_DEFAULTS = {
     firstAidBn: null,
     dosageBn: null,
     approvedCropsBn: null,
+    safetySource: null,
     // Feature 4 (cut from this submission; field reserved so no migration is needed)
     requiresExpiry: false,
 };
@@ -146,8 +147,19 @@ export const listBannedProducts = () =>
 // ── Feature 3 — Bengali safety panel ──────────────────────────────────────
 
 /**
- * setSafetyData('AI-000730', { whoClass, signalWordBn, phiDays,
- *                              reentryHours, firstAidBn, dosageBn, approvedCropsBn })
+ * setSafetyData('AI-000730', { whoClass, signalWordBn, phiDays, reentryHours,
+ *                              firstAidBn, dosageBn, approvedCropsBn, safetySource })
+ *
+ * Every field is written on every call, `null` included — this replaces the
+ * whole safety block rather than patching part of it, so a field cleared on the
+ * form is cleared in the database. Callers must therefore pass the complete
+ * set; the Product page's dialog collects all of them for that reason.
+ *
+ * `safetySource` says where the figures came from — a photographed label, a
+ * leaflet, or a placeholder. It is not decoration. §9 of the schema doc is
+ * entirely about where these fields come from, and the panel prints this line
+ * whatever it says, so demonstration data cannot be mistaken on a printed page
+ * for something read off a container.
  */
 export async function setSafetyData(code, safety) {
     if (safety.whoClass) assertEnum(safety.whoClass, WHO_CLASS, 'whoClass');
@@ -159,8 +171,23 @@ export async function setSafetyData(code, safety) {
         firstAidBn: safety.firstAidBn ?? null,
         dosageBn: safety.dosageBn ?? null,
         approvedCropsBn: safety.approvedCropsBn ?? null,
+        safetySource: safety.safetySource ?? null,
     });
 }
+
+/**
+ * The conventional Bengali signal word for a WHO class, as recorded in
+ * FIRESTORE-SCHEMA.md §9.2. Offered as a suggestion on the Product page; the
+ * stored value is whatever the author typed, because the wording that matters
+ * is the one on the container.
+ */
+export const SIGNAL_WORD_BN = {
+    Ia: 'অতি বিষাক্ত',
+    Ib: 'অতি বিষাক্ত',
+    II: 'বিষাক্ত',
+    III: 'সতর্কতা',
+    U: 'সতর্কতা',
+};
 
 /** True when the product carries enough safety data to print a panel. */
 export const hasSafetyData = (p) => Boolean(p && (p.whoClass || p.dosageBn || p.firstAidBn));
@@ -179,5 +206,7 @@ export function safetySnapshot(product) {
         reentryHours: product.reentryHours ?? null,
         firstAidBn: product.firstAidBn ?? null,
         dosageBn: product.dosageBn ?? null,
+        approvedCropsBn: product.approvedCropsBn ?? null,
+        safetySource: product.safetySource ?? null,
     };
 }
