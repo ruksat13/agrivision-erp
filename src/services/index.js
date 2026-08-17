@@ -50,7 +50,7 @@ export {
 // ── licences (Feature 1) ──────────────────────────────────────────────────
 export {
     getLicence, getLicenceOrThrow, listLicences, getDealerLicences,
-    listExpiring, expirySummary, complianceReport,
+    listExpiring, expirySummary, complianceReport, overriddenLicenceValue,
     createLicence, updateLicence, renewLicence,
     licenceStatus, daysToExpiry, isExpired, withStatus,
     requiredLicenceType, licenceCheckFor,

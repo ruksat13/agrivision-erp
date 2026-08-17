@@ -8,8 +8,9 @@
 import { COL, LICENCE_SCOPE, LICENCE_TYPE, LICENCE_FOR_CATEGORY, RULE_CODE } from './constants';
 import {
     createDoc, updateDoc_, getById, getByIdOrThrow, listDocs,
-    requireFields, assertEnum, toTimestamp, toDate, formatDate,
+    requireFields, assertEnum, toTimestamp, toDate, formatDate, toNumber, money,
 } from './core';
+import { listCustomers } from './customers';
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -181,11 +182,112 @@ export function licenceCheckFor(dealerLicences, product, saleDate = new Date()) 
     };
 }
 
+// ── Feature 1 part 6 — the compliance report ──────────────────────────────
+
+/** The blocks that mean "supplied without valid licence cover". */
+const LICENCE_RULE_CODES = [RULE_CODE.LICENCE_EXPIRED, RULE_CODE.LICENCE_MISSING];
+
 /**
- * The compliance report: every dealer licence with its status and days
- * remaining, worst first.
+ * Value supplied under an overridden licence block, keyed by
+ * `${dealerId}|${licenceType}` — UNIQUE-FEATURES.md §5 Feature 1 point 6.
+ *
+ * Nothing new is stored to make this work. A sale already carries `ruleChecks`,
+ * and an override sets `overridden` on the entry that was waived, so the sales
+ * that went out under a bad licence are already identifiable. The figure is the
+ * LINE total of the products the block actually named, not the invoice total —
+ * the other lines on that invoice were lawful and adding them would overstate
+ * the exposure, which on a compliance screen is its own kind of wrong.
+ *
+ * `sale_items.category` maps to a licence type through LICENCE_FOR_CATEGORY, so
+ * the value lands on the specific licence that was out of date rather than on
+ * the dealer as a whole.
+ *
+ * Cost: Firestore cannot query inside an array of maps, so the ruleChecks
+ * filter is applied in memory over `sales` — the approach listPurchases() and
+ * listCommissions() already take. The per-sale line lookup that follows runs
+ * only for sales that carry an override, and an override needs a manager's
+ * written reason, so that set stays small by construction.
+ */
+export async function overriddenLicenceValue() {
+    const sales = await listDocs(COL.SALES, {});
+    const waived = sales.filter(s =>
+        s.status !== 'Cancelled'
+        && (s.ruleChecks || []).some(r => r.overridden && LICENCE_RULE_CODES.includes(r.code)));
+
+    const byKey = new Map();
+
+    for (const sale of waived) {
+        const items = await listDocs(COL.SALE_ITEMS, { filters: [['saleId', '==', sale.invoiceNo]] });
+        const byProduct = new Map(items.map(it => [it.productId, it]));
+
+        (sale.ruleChecks || [])
+            .filter(r => r.overridden && LICENCE_RULE_CODES.includes(r.code))
+            .forEach(r => {
+                const item = byProduct.get(r.productId);
+                if (!item) return;                       // line removed before saving
+                const type = LICENCE_FOR_CATEGORY[item.category] ?? null;
+                if (!type) return;                       // category needs no licence
+                const key = `${sale.customerId}|${type}`;
+                byKey.set(key, money((byKey.get(key) || 0) + toNumber(item.lineTotal)));
+            });
+    }
+
+    return byKey;
+}
+
+/** Everything waived against one dealer, whichever licence type was named. */
+const dealerTotal = (byKey, dealerId) =>
+    money([...byKey.entries()]
+        .filter(([k]) => k.startsWith(`${dealerId}|`))
+        .reduce((sum, [, v]) => sum + v, 0));
+
+/**
+ * The compliance report: every dealer licence with its status, days remaining
+ * and the value sold under an override — worst first.
+ *
+ * Rows are NOT only licences. A dealer holding nothing at all has no licence
+ * document to appear in, and that is the worst case in the whole feature, not
+ * an absence worth being quiet about. Those dealers are found by diffing
+ * listCustomers() against the licence holders and come back as their own band,
+ * `status: 'No licence'`, above the expired ones.
  */
 export async function complianceReport() {
-    const rows = await listLicences({ scope: 'dealer' });
-    return rows.sort((a, b) => (a.daysRemaining ?? 1e9) - (b.daysRemaining ?? 1e9));
+    const [licences, dealers, byKey] = await Promise.all([
+        listLicences({ scope: 'dealer' }),
+        listCustomers({ status: 'Active' }),
+        overriddenLicenceValue(),
+    ]);
+
+    const covered = new Set(licences.map(l => l.holderId));
+
+    const licenceRows = licences
+        .map(l => ({
+            ...l,
+            valueSoldUnderOverride: byKey.get(`${l.holderId}|${l.licenceType}`) ?? 0,
+        }))
+        .sort((a, b) => (a.daysRemaining ?? 1e9) - (b.daysRemaining ?? 1e9));
+
+    const uncoveredRows = dealers
+        .filter(d => !covered.has(d.code))
+        .map(d => ({
+            // Synthetic id — there is no licence document behind this row.
+            id: `no-licence:${d.code}`,
+            scope: 'dealer',
+            holderId: d.code,
+            holderName: d.name,
+            licenceType: null,
+            licenceNo: null,
+            issuingAuthority: null,
+            issueDate: null,
+            expiryDate: null,
+            status: 'No licence',
+            daysRemaining: null,
+            valueSoldUnderOverride: dealerTotal(byKey, d.code),
+        }))
+        // A dealer with no licence who has already been supplied is worse than
+        // one who has not, so the money sorts first.
+        .sort((a, b) => (b.valueSoldUnderOverride - a.valueSoldUnderOverride)
+            || a.holderName.localeCompare(b.holderName));
+
+    return [...uncoveredRows, ...licenceRows];
 }
