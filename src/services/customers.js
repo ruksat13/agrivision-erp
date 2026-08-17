@@ -9,7 +9,7 @@ import { db } from '../firebase';
 import { COL, STATUS } from './constants';
 import {
     createDoc, updateDoc_, softDelete, getById, getByIdOrThrow, listDocs,
-    requireFields, assertEnum, toNumber, money, queueAudit,
+    requireFields, assertEnum, toNumber, money, queueAudit, actorScope,
 } from './core';
 
 const NULLABLE_DEFAULTS = {
@@ -25,15 +25,31 @@ export const getCustomerOrThrow = (code) => getByIdOrThrow(COL.CUSTOMERS, code);
 /**
  * listCustomers({ areaId, territoryId, officerId, status, search })
  *
- * Pass the signed-in user's scope so the list matches what Security Rules will
- * allow — an Area Manager should be given `{ areaId: user.areaId }`.
+ * The caller's own scope is applied automatically, because leaving it to each
+ * screen did not work: SalesEntry.js calls `listCustomers()` with no arguments,
+ * and under the real rules that asked for the whole collection and was refused
+ * outright — "Could not load dealers (permission-denied)", with zero dealers on
+ * the screen rather than the officer's own.
+ *
+ * Security Rules are not filters. `customers` is readable by an admin or an
+ * Accountant unconditionally, but by an Area Manager only where
+ * `areaId == their area` and by a Sales Officer only where
+ * `officerId == their uid`. A query has to carry that same clause for Firestore
+ * to allow the LIST at all, so actorScope() supplies it from the signed-in
+ * profile. Both shapes are already indexed — see the two `customers` entries in
+ * firestore.indexes.json.
+ *
+ * An explicit argument still wins, so an admin can narrow to one area and the
+ * reports keep working. Passing one that contradicts the caller's own scope
+ * does not widen anything: the rules refuse it, exactly as they should.
  */
 export async function listCustomers({ areaId, territoryId, officerId, status = 'Active', search } = {}) {
+    const scope = actorScope();
     const rows = await listDocs(COL.CUSTOMERS, {
         filters: [
-            ['areaId', '==', areaId],
+            ['areaId', '==', areaId ?? scope.areaId],
             ['territoryId', '==', territoryId],
-            ['officerId', '==', officerId],
+            ['officerId', '==', officerId ?? scope.officerId],
             ['status', '==', status],
         ],
         order: ['name', 'asc'],
@@ -51,7 +67,17 @@ export async function customerOptions(filter = {}) {
     return rows.map(c => ({ value: c.code, label: `${c.name} [${c.code}]`, customer: c }));
 }
 
-/** Dealers carrying a receivable, largest first — the Due report. */
+/**
+ * Dealers carrying a receivable, largest first — the Due report.
+ *
+ * Deliberately NOT scoped by actorScope(), unlike listCustomers(). The only
+ * menu that reaches /due-report is 'all' — Super Admin and Managing Director,
+ * both of whom pass the customers read rule unconditionally, so the unscoped
+ * query is legal for every caller that can actually get here. Were the report
+ * ever given to an Area Manager it would fail with permission-denied, and the
+ * fix is a composite index on (areaId, balance) before the filter, because
+ * Firestore cannot combine an inequality with an unindexed equality.
+ */
 export const listCustomersWithDue = () =>
     listDocs(COL.CUSTOMERS, { filters: [['balance', '>', 0]], order: ['balance', 'desc'] });
 

@@ -5,33 +5,37 @@ rules_version = '2';
 // docs/FIRESTORE-SCHEMA.md §7. These enforce on the server; the route guard in
 // ProtectedRoute.js only shapes the UI.
 //
+// Every rule below reads the caller's profile from users/{uid}, whose document
+// ID is the Firebase Auth UID — scripts/seed-auth.mjs explains why that has to
+// be true. An account that authenticates but has no profile is denied
+// everything, which is exactly the session AuthContext.js refuses to leave open.
+//
 // ──────────────────────────────────────────────────────────────────────────
-// DO NOT DEPLOY THESE YET.
-//
-// Every rule below reads the caller's profile from users/{uid}. Until Firebase
-// Auth is connected and the users collection is seeded, that document does not
-// exist, so these rules deny everything — including the seed script.
-//
-// Deploy order (schema §11):
-//   step 1   development rules (below, commented out) → seed the database
-//   step 5   connect Firebase Auth, seed users/
-//   step 10  deploy this file
+// These are the real rules and they are meant to be deployed:
 //
 //   firebase deploy --only firestore:rules
+//
+// The blanket development rule that used to sit here — everything open until
+// 2026-09-15 — has been removed. It expired before the showcase either way, so
+// it was never going to survive the demonstration, and a rule that grants
+// everything is not something to keep next to the rules that do not.
+//
+// The emulator still needs a permissive copy to seed against. It has its own,
+// in scripts/emulator-rules.mjs, which never touches this file:
+//
+//   node scripts/emulator-rules.mjs dev     # permissive — to seed
+//   node scripts/emulator-rules.mjs real    # this file
 // ──────────────────────────────────────────────────────────────────────────
 //
-// Development rules for step 1 — paste into the console's Rules tab, or
-// temporarily swap them in here. The date makes them expire on their own so
-// the database is not left open after the submission.
+// ── How these rules constrain the QUERIES the app may send ────────────────
 //
-//   rules_version = '2';
-//   service cloud.firestore {
-//     match /databases/{database}/documents {
-//       match /{document=**} {
-//         allow read, write: if request.time < timestamp.date(2026, 9, 15);
-//       }
-//     }
-//   }
+// A rule that names `resource.data` cannot be satisfied by a whole-collection
+// query. Rules are not filters: Firestore refuses the LIST outright rather than
+// narrowing it, so a screen asking for every dealer gets permission-denied
+// instead of a short list. Any collection scoped with myArea() or mine() below
+// therefore requires the service layer to send the matching where() clause —
+// listCustomers() in src/services/customers.js is the worked example, and the
+// customers indexes in firestore.indexes.json exist for exactly those queries.
 
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -91,6 +95,15 @@ service cloud.firestore {
     // Reject a write that tries to change a field it must not touch
     function unchanged(field) {
       return request.resource.data[field] == resource.data[field];
+    }
+
+    // The opposite restriction: this update may touch these fields and nothing
+    // else. Used where a role has to move a running total but has no business
+    // editing the master it sits on — a Storekeeper raising a purchase moves
+    // suppliers.balance, and should not thereby be able to rewrite the
+    // supplier's name or opening balance.
+    function onlyChanges(fields) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
     }
 
     // ── Master data ──────────────────────────────────────────────────────
@@ -196,15 +209,208 @@ service cloud.firestore {
     }
 
     // ── Counters ─────────────────────────────────────────────────────────
-    // Invoice numbering. Anyone who may raise a sale must be able to advance it.
+    // Document numbering. Anyone who may raise a numbered document must be able
+    // to advance its sequence — otherwise the rule that lets them create the
+    // document is worthless, because nextSequence() fails first and the save
+    // never reaches the collection.
+    //
+    // The Accountant was added when the Tier 2 collections landed: /expense
+    // draws on the `expenses` and `expense_vouchers` counters, so without this
+    // an Accountant could be granted create on `expenses` and still not be able
+    // to save one. The Storekeeper's `purchases_YYYY-MM`, `boms` and
+    // `product_demands` counters are the same case.
 
     match /counters/{name} {
-      allow read, write: if isAdmin() || hasRole(['Area Manager', 'Sales Officer', 'Storekeeper']);
+      allow read, write: if isAdmin()
+                         || hasRole(['Area Manager', 'Sales Officer', 'Storekeeper', 'Accountant']);
+    }
+
+    // ══ Tier 2 ═══════════════════════════════════════════════════════════
+    //
+    // The fourteen collections migrated while wiring the dead Save buttons of
+    // SCREEN-AUDIT.md §2.1. Each block below is derived from what its screen
+    // and service actually do, not from a house pattern:
+    //
+    //   · WHO READS  — which roles' seeded page permissions (scripts/seed-
+    //     data.mjs) reach a screen that reads the collection, including the
+    //     screens that only read it to fill a selector.
+    //   · WHO WRITES — which service functions write it, and what else those
+    //     functions touch in the same batch. A grant here is worthless if the
+    //     batch also writes a collection the same role is refused.
+    //
+    // None of the fourteen carries an areaId or an officerId, so none is scoped
+    // per row: these are company books, not a territory's. That also means a
+    // whole-collection LIST is legal for anyone granted read, which is why no
+    // service function below needed the scoping treatment listCustomers() got.
+
+    // ── Tier 2: purchasing ───────────────────────────────────────────────
+
+    // The supplier master. A Storekeeper reads it because Purchase selects a
+    // supplier, and writes it only through the payable — createPurchase() moves
+    // suppliers.balance in the same batch as the invoice, so refusing the
+    // update here would refuse the purchase. The rest of a supplier record
+    // (name, phone, opening balance) stays with an admin, so that narrow need
+    // is written as a field restriction rather than as blanket trust.
+    match /suppliers/{supplierCode} {
+      allow read:   if isAdmin() || hasRole(['Storekeeper']);
+      allow create: if isAdmin();
+      allow update: if isAdmin()
+                    || (hasRole(['Storekeeper']) && onlyChanges(['balance', 'updatedAt']));
+      allow delete: if false;                       // deactivate instead
+    }
+
+    // /purchase is on the Storekeeper's menu. Receiving goods writes the
+    // invoice, its lines, the stock movements and the payable in one batch;
+    // stock_movements already grants Storekeeper create, and the suppliers rule
+    // above grants the balance move.
+    match /purchases/{purchaseNo} {
+      allow read:   if isAdmin() || hasRole(['Storekeeper']);
+      allow create: if isAdmin() || hasRole(['Storekeeper']);
+      // Cancelling and the note field. A cancelled purchase keeps its lines and
+      // its reason, the same treatment cancelSale() gives an invoice.
+      allow update: if isAdmin() || hasRole(['Storekeeper']);
+      allow delete: if false;                       // cancel, never delete
+    }
+
+    // Written in the same batch as the purchase and never touched again —
+    // sale_items' rule, for the same reason: a line is not edited in place.
+    match /purchase_items/{itemId} {
+      allow read:   if isAdmin() || hasRole(['Storekeeper']);
+      allow create: if isAdmin() || hasRole(['Storekeeper']);
+      allow update, delete: if false;
+    }
+
+    // /purchase-return is NOT on the Storekeeper's menu — sending goods back
+    // and reducing what we owe is an admin decision in the seeded permissions.
+    // Approving one writes stock_movements and moves the payable, both of which
+    // an admin already holds.
+    match /purchase_returns/{returnNo} {
+      allow read:   if isAdmin();
+      allow create: if isAdmin();
+      allow update: if isAdmin();                   // approve, cancel
+      allow delete: if false;
+    }
+
+    // ── Tier 2: manufacturing ────────────────────────────────────────────
+
+    // The recipe register — /batch, on the Storekeeper's menu. Read is wider
+    // than the screen because /repacking builds its selector from bomOptions().
+    match /boms/{bomNo} {
+      allow read:   if isAdmin() || hasRole(['Storekeeper']);
+      allow create, update: if isAdmin() || hasRole(['Storekeeper']);
+      allow delete: if false;                       // deactivate instead
+    }
+
+    // A run consumes its materials and produces the output in one batch.
+    // /repacking is admin-only on the seeded menus, so the Storekeeper who may
+    // write a recipe may not execute one. That is the seeded permission set
+    // read back rather than a judgement of my own; if the Storekeeper should
+    // run repacking, the page permission is the thing to change first.
+    match /repackings/{repackNo} {
+      allow read:   if isAdmin();
+      allow create: if isAdmin();
+      allow update: if isAdmin();                   // cancel
+      allow delete: if false;
+    }
+
+    // ── Tier 2: inter-office stock requests ──────────────────────────────
+
+    // /product-demand is the Storekeeper's. The screen offers Approve, Receive
+    // and Cancel to whoever opens it, so update matches create: the Storekeeper
+    // who raised a request can also approve it. That is a weak control, and it
+    // is written plainly here rather than being quietly refused by a rule that
+    // disagrees with a button the screen still shows.
+    match /product_demands/{requestNo} {
+      allow read:   if isAdmin() || hasRole(['Storekeeper']);
+      allow create: if isAdmin() || hasRole(['Storekeeper']);
+      allow update: if isAdmin() || hasRole(['Storekeeper']);
+      allow delete: if false;                       // Cancel is a status
+    }
+
+    // ── Tier 2: money ────────────────────────────────────────────────────
+
+    // The expense head master. The Accountant reads it because the Expense
+    // screen's head selector is expenseHeadOptions(); it is maintained from
+    // /expense-head, which only the two 'all' roles reach.
+    match /expense_heads/{headId} {
+      allow read:   if isAdmin() || hasRole(['Accountant']);
+      allow create, update: if isAdmin();
+      allow delete: if false;                       // deactivate instead
+    }
+
+    // /expense is the Accountant's, and posts both Expense and Income rows. It
+    // also carries Approve and Cancel, so an Accountant can approve an expense
+    // they entered — the same self-approval as product_demands, and reported
+    // rather than papered over.
+    match /expenses/{code} {
+      allow read:   if isAdmin() || hasRole(['Accountant']);
+      allow create: if isAdmin() || hasRole(['Accountant']);
+      allow update: if isAdmin() || hasRole(['Accountant']);
+      allow delete: if false;                       // Cancelled is a status
+    }
+
+    // The company's own bank accounts, not a dealer's. Only the two 'all' roles
+    // reach either screen that touches them — /bank-account, and the "paid
+    // from" selector on /supplier-payment. The Accountant is deliberately NOT
+    // granted read: /cash-collection is still a sample-data screen and reads
+    // nothing, so adding the role now would widen the rule ahead of the app.
+    match /bank_accounts/{accountId} {
+      allow read:   if isAdmin();
+      allow create, update: if isAdmin();
+      allow delete: if false;                       // deactivate instead
+    }
+
+    // Money out to a supplier. The payable moves on APPROVAL, in the same batch
+    // as the status change, so whoever may approve one also needs the suppliers
+    // update above — which is why this stays with the admin roles.
+    match /supplier_payments/{paymentId} {
+      allow read:   if isAdmin();
+      allow create: if isAdmin();
+      allow update: if isAdmin();                   // edit while Pending, approve, cancel
+      allow delete: if false;                       // Cancelled is a status
+    }
+
+    // One collection behind both opening-balance screens, separated by `party`.
+    // Posting an entry moves the party's own balance in the same batch, so this
+    // block writes customers or suppliers as well as itself. Admin-only, which
+    // is also what both screens' page permissions say.
+    match /opening_balances/{entryId} {
+      allow read:   if isAdmin();
+      allow create: if isAdmin();
+      allow update: if isAdmin();                   // cancel posts the reversal
+      allow delete: if false;                       // Cancel is a status
+    }
+
+    // A commission records what was awarded and deliberately moves no balance —
+    // paying it is a supplier payment or a collection with its own document —
+    // so unlike opening_balances nothing here reaches outside the collection.
+    // Both screens are admin-only.
+    match /commissions/{code} {
+      allow read:   if isAdmin();
+      allow create: if isAdmin();
+      allow update: if isAdmin();                   // approve, cancel
+      allow delete: if false;                       // Cancelled is a status
+    }
+
+    // ── Tier 2: promotions ───────────────────────────────────────────────
+
+    // /offers is admin-only, and nothing on the sale path reads an offer yet:
+    // SalesEntry.js does not import the offers service, so a Sales Officer has
+    // no query to make here. Read stays with the admin roles until the till
+    // actually needs it — treating an offer as reference data the way products
+    // and licences are treated would be widening the rule on a guess.
+    match /offers/{code} {
+      allow read:   if isAdmin();
+      allow create, update: if isAdmin();
+      allow delete: if false;                       // Archived is the soft delete
     }
 
     // ── Everything else ──────────────────────────────────────────────────
-    // Tier 2 collections are not migrated yet (schema §10). Denying by default
-    // means a collection added later is closed until a rule is written for it.
+    // The rest of Tier 2 (schema §10) is still sample data on screen —
+    // `collections`, `sale_returns`, `damages`, `settings` and the others have
+    // no service module and no rule. Denying by default means each one stays
+    // closed until a rule is written for it, which is how the fourteen above
+    // were caught rather than silently deploying open.
 
     match /{document=**} {
       allow read, write: if false;

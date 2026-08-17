@@ -34,16 +34,26 @@ export class ServiceError extends Error {
 let _actor = null;
 
 /**
- * Record who is performing writes. Call once after login.
+ * Record who is performing reads and writes. Call once after login.
  *
- *   setActor({ id, name, role })
+ *   setActor({ id, name, role, areaId, territoryId })
  *
- * Until AuthContext is moved to Firebase Auth this falls back to the existing
- * localStorage session ('av_current'), so the layer works today without any
- * change to AuthContext.js.
+ * `areaId` matters as much as `role` now: actorScope() below turns the two into
+ * the where() clause that Security Rules require of a scoped query, so an actor
+ * recorded without an areaId leaves an Area Manager unable to list anything.
+ * AuthContext.remember() passes the whole shaped profile.
+ *
+ * Falls back to the localStorage session ('av_current') when setActor() has not
+ * been called — a page reloaded before onAuthStateChanged has fired.
  */
 export function setActor(user) {
-    _actor = user ? { id: user.id ?? user.uid, name: user.name, role: user.role } : null;
+    _actor = user ? {
+        id: user.id ?? user.uid,
+        name: user.name,
+        role: user.role,
+        areaId: user.areaId ?? null,
+        territoryId: user.territoryId ?? null,
+    } : null;
 }
 
 export function getActor() {
@@ -52,10 +62,47 @@ export function getActor() {
         const raw = localStorage.getItem('av_current');
         if (raw) {
             const u = JSON.parse(raw);
-            return { id: String(u.id ?? u.uid ?? u.email), name: u.name, role: u.role };
+            return {
+                id: String(u.id ?? u.uid ?? u.email),
+                name: u.name,
+                role: u.role,
+                areaId: u.areaId ?? null,
+                territoryId: u.territoryId ?? null,
+            };
         }
     } catch (e) { /* fall through */ }
     return null;
+}
+
+/**
+ * The filters this caller's role must put on a query for Security Rules to
+ * allow it.
+ *
+ * Rules are NOT filters. A rule written as
+ *
+ *     allow read: if isAdmin() || myArea(resource.data.areaId)
+ *                              || mine(resource.data.officerId)
+ *
+ * cannot be satisfied by a query for the whole collection: Firestore refuses
+ * the LIST outright rather than narrowing it, so an Area Manager asking for
+ * every dealer gets permission-denied and an empty screen — not their own area.
+ * The query has to prove up front that it only asks for rows the rule allows,
+ * which means carrying the same where() clause the rule tests.
+ *
+ * Returns {} for the roles whose read grant does not depend on the row
+ * (Super Admin, Managing Director, Accountant): their rule is true regardless
+ * of `resource`, so an unscoped query is already legal and adding a filter
+ * would silently hide records they are entitled to see.
+ *
+ * Kept here rather than in each collection module because the shape is a
+ * property of the caller, not of the collection.
+ */
+export function actorScope() {
+    const actor = getActor();
+    if (!actor) return {};
+    if (actor.role === 'Sales Officer') return { officerId: actor.id };
+    if (actor.role === 'Area Manager') return { areaId: actor.areaId };
+    return {};
 }
 
 /** Mutations require an actor — an unattributed audit entry is not an audit entry. */

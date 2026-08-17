@@ -54,7 +54,10 @@ function shapeUser(uid, profile, fbUser) {
 }
 
 function remember(user) {
-    setActor({ id: user.id, name: user.name, role: user.role });
+    // The whole shaped profile, not just id/name/role: the service layer builds
+    // a scoped query from `role` AND `areaId` (actorScope() in services/core.js),
+    // so an Area Manager remembered without their area lists nothing at all.
+    setActor(user);
     try {
         localStorage.setItem(CURRENT_KEY, JSON.stringify(user));
     } catch (e) { /* private browsing — setActor already has it */ }
