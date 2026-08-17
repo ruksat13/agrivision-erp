@@ -78,6 +78,16 @@ service cloud.firestore {
       return active() && role() in roles;
     }
 
+    // Who may waive a blocking sale rule (PROJECT-OUTLINE.md §3.4). Kept in
+    // step by hand with OVERRIDE_ROLES in src/services/constants.js — rules
+    // cannot import JavaScript. A Sales Officer is deliberately absent: they
+    // raise the order, so letting them waive their own block would make the
+    // control advisory. The screen hides the button for them; THIS is what
+    // makes it a control rather than a hidden button.
+    function canOverrideRules() {
+      return hasRole(['Super Admin', 'Managing Director', 'Area Manager']);
+    }
+
     // Reject a write that tries to change a field it must not touch
     function unchanged(field) {
       return request.resource.data[field] == resource.data[field];
@@ -172,11 +182,16 @@ service cloud.firestore {
 
     match /audit_log/{entryId} {
       allow read:   if isAdmin() || hasRole(['Accountant']);
+
+      // An override must carry a written reason AND come from someone entitled
+      // to give one. Both halves are refused here, on the server, so the
+      // control survives a caller that never went through the screen.
       allow create: if active()
                     && request.resource.data.userId == request.auth.uid
                     && (request.resource.data.action != 'rule_override'
                         || (request.resource.data.reason is string
-                            && request.resource.data.reason.size() > 0));
+                            && request.resource.data.reason.size() > 0
+                            && canOverrideRules()));
       allow update, delete: if false;
     }
 

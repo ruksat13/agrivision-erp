@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import {
     listCustomers, listProducts, getCustomer, getDealerLicences,
     createSale, licenceStatus, formatDate, ServiceError, PAYMENT_TYPE, OFFICE,
+    OVERRIDE_ROLES,
 } from '../services';
+import { useAuth } from '../context/AuthContext';
 import {
     checkSaleRules, applyOverride, removeOverride,
     unresolvedBlocks, canSave, summarise, registeredRuleCount,
@@ -70,7 +72,12 @@ function Notice({ tone = 'warn', children }) {
 
 // ── Rule results panel ────────────────────────────────────────────────────
 
-function RulePanel({ results, onOverride, onUndoOverride }) {
+// `canOverride` is the caller's role tested against OVERRIDE_ROLES. A Sales
+// Officer raises the order and is the person a block is aimed at, so they never
+// see the Override button — PROJECT-OUTLINE.md §3.4 makes waiving a block the
+// Area Manager's decision. firestore.rules refuses the rule_override audit
+// entry from anyone else as well; this half only keeps the screen honest.
+function RulePanel({ results, onOverride, onUndoOverride, canOverride }) {
     const [openIndex, setOpenIndex] = useState(null);
     const [reason, setReason] = useState('');
 
@@ -121,11 +128,16 @@ function RulePanel({ results, onOverride, onUndoOverride }) {
                             </div>
 
                             <div style={{ flexShrink: 0 }}>
-                                {isBlock && r.overridable && !done && (
+                                {isBlock && r.overridable && !done && canOverride && (
                                     <button onClick={() => { setOpenIndex(openIndex === i ? null : i); setReason(''); }}
                                         style={btn('#fd7e14', { padding: '6px 14px', fontSize: 12 })}>
                                         Override…
                                     </button>
+                                )}
+                                {isBlock && r.overridable && !done && !canOverride && (
+                                    <span style={{ fontSize: 11, color: '#6c757d', fontStyle: 'italic', whiteSpace: 'nowrap' }}>
+                                        Area Manager only
+                                    </span>
                                 )}
                                 {done && (
                                     <button onClick={() => onUndoOverride(i)}
@@ -167,6 +179,11 @@ function RulePanel({ results, onOverride, onUndoOverride }) {
 
 function SalesEntry() {
     const navigate = useNavigate();
+    const { currentUser } = useAuth();
+
+    // Who may waive a block. Read from the signed-in profile's role, which
+    // comes from users/{uid} — the same field firestore.rules tests.
+    const canOverride = OVERRIDE_ROLES.includes(currentUser?.role);
 
     // reference data
     const [customers, setCustomers] = useState([]);
@@ -309,8 +326,10 @@ function SalesEntry() {
     // ── Overrides ────────────────────────────────────────────────────────
     const handleOverride = (index, reason) => {
         try {
-            const actor = JSON.parse(localStorage.getItem('av_current') || 'null');
-            setRuleResults(prev => applyOverride(prev, index, { user: actor, reason }));
+            // The signed-in profile, not a localStorage read: this is what the
+            // audit entry is attributed to, so it has to be the account
+            // Firebase Auth actually authenticated.
+            setRuleResults(prev => applyOverride(prev, index, { user: currentUser, reason }));
         } catch (err) {
             setSaveError(err.message);
         }
@@ -567,7 +586,7 @@ function SalesEntry() {
             </div>
 
             {/* ── Rules ── */}
-            <RulePanel results={ruleResults} onOverride={handleOverride} onUndoOverride={handleUndoOverride} />
+            <RulePanel results={ruleResults} onOverride={handleOverride} onUndoOverride={handleUndoOverride} canOverride={canOverride} />
 
             {/* ── Totals and save ── */}
             <div style={card}>
