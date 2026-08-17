@@ -29,7 +29,9 @@ import {
     PRODUCTS, PRODUCT_BY_NAME, OFFICERS, STAFF, DEALERS, INVOICES,
     COMPANY_LICENCES, dealerLicences, openingStock, OFFICES,
     SUPPLIERS, SUPPLIER_COUNTER, EXPENSE_HEADS,
+    DEMO_PASSWORD, OFFICER_PERMISSIONS,
 } from './seed-data.mjs';
+import { seedAuth } from './seed-auth.mjs';
 
 // ── Config ────────────────────────────────────────────────────────────────
 // Same values as src/firebase.js. The web config is public by design; security
@@ -156,13 +158,18 @@ function seedProducts() {
     return PRODUCTS.length;
 }
 
+/**
+ * users/ profiles. The document ID is the user's code, and seed-auth.mjs
+ * creates each Auth account with that same code as its UID — firestore.rules
+ * looks the caller up at users/{request.auth.uid}, so the two must agree.
+ */
 function seedUsers() {
     OFFICERS.forEach(o => {
         put('users', o.code, {
             name: o.name,
             email: o.email,
             role: 'Sales Officer',
-            permissions: ['/', '/sales', '/customer', '/customer-ledger', '/sales-report', '/stock-report'],
+            permissions: OFFICER_PERMISSIONS,
             officeId: 'head',
             areaId: o.areaId,
             territoryId: o.territoryId,
@@ -486,8 +493,22 @@ async function main() {
 
     if (DRY) return;
 
+    // Logins. Only the emulator can be given accounts with chosen UIDs, and the
+    // UID has to match the users/ document ID that was just written — so this
+    // runs after the profiles, and a failure here is fatal: a seeded database
+    // nobody can log into is not a seeded database.
+    let authCount = 0;
+    if (EMULATOR) {
+        console.log('\nCreating Auth accounts…');
+        authCount = await seedAuth({ quiet: true });
+        console.log(`  ${authCount} logins (password: ${DEMO_PASSWORD})`);
+    } else {
+        console.log('\nSkipping Auth accounts — real project. See scripts/seed-auth.mjs.');
+    }
+
     console.log('\nSeeded:');
     Object.entries(counts).forEach(([k, v]) => console.log(`  ${String(v).padStart(4)}  ${k}`));
+    if (authCount) console.log(`  ${String(authCount).padStart(4)}  authAccounts`);
 
     console.log(`
 Ready to demonstrate:
@@ -511,8 +532,17 @@ Two things still need you:
   2. bannedAuthority on AI-000905 and AI-000906 is a PLACEHOLDER. Replace it
      with a real DAE notification reference before submission.
 
-  Users are seeded with placeholder IDs (AIO-…/AIU-…). Step 5 of the migration
-  order in docs/FIRESTORE-SCHEMA.md replaces them with Firebase Auth UIDs.
+Logins (password: ${DEMO_PASSWORD}) — the Auth UID is the users/ document ID:
+
+  akib@agrivision.com        Super Admin        everything
+  nazmul@agrivision.com      Managing Director  everything
+  sadia@agrivision.com       Area Manager       may override a blocked sale
+  rahim@agrivision.com       Accountant         ledgers, expenses, audit log
+  karim@agrivision.com       Storekeeper        purchase, stock, demands
+  officer10@agrivision.com   Sales Officer      raises orders; cannot override
+
+  Any officerNN@agrivision.com from the seed works. officer10 is the one who
+  owns AIC-000001, the dealer with the expired pesticide licence.
 `);
 }
 

@@ -140,6 +140,20 @@ export const ROLE = [
     'Accountant', 'Storekeeper', 'Delivery Man', 'Dealer',
 ];
 
+/**
+ * Who may waive a blocking sale rule (PROJECT-OUTLINE.md §3.4). A Sales Officer
+ * raises the order and is the person the block is aimed at, so they are not on
+ * this list — otherwise the control is advisory.
+ *
+ * This list is enforced TWICE on purpose: here, so the Override button is not
+ * offered to an officer who cannot use it, and again in firestore.rules, which
+ * refuses the rule_override audit entry outright. The rules copy is the real
+ * control; a gate that exists only in the UI is not a control. Security Rules
+ * cannot import JavaScript, so the two are kept in step by hand — the same
+ * arrangement BALANCE_SIGN already has with scripts/verify.mjs.
+ */
+export const OVERRIDE_ROLES = ['Super Admin', 'Managing Director', 'Area Manager'];
+
 // ── audit ─────────────────────────────────────────────────────────────────
 export const AUDIT_ACTION = [
     'create', 'update', 'delete', 'login', 'logout', 'approve', 'rule_override', 'seed',

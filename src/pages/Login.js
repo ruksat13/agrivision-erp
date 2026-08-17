@@ -113,9 +113,13 @@ function Login() {
                 <div style={{ marginTop: '22px', paddingTop: '16px', borderTop: '1px dashed #e2e6ea' }}>
                     <p style={{ fontSize: '12px', color: '#888', margin: '0 0 8px', fontWeight: '600' }}>Demo Accounts (password: 123456)</p>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        {/* The three roles the demonstration script walks through, in the
+                            order INTERNAL-PLAN.md §7 uses them. Roles are the ones in
+                            ROLE — the same names firestore.rules reads from users/{uid}. */}
                         {[
-                            { label: 'Akib — Super Admin (all access)', email: 'akib@agrivision.com' },
-                            { label: 'Sadab — Staff (limited access)', email: 'sadab@agrivision.com' },
+                            { label: 'Md. Sales Officer — Sales Officer (raises the order)', email: 'officer10@agrivision.com' },
+                            { label: 'Sadia Akter — Area Manager (may override a block)', email: 'sadia@agrivision.com' },
+                            { label: 'Md. Ruksat Hasan Akib — Super Admin (all access)', email: 'akib@agrivision.com' },
                         ].map(d => (
                             <button key={d.email} type="button"
                                 onClick={() => { setEmail(d.email); setPassword('123456'); }}

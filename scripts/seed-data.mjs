@@ -103,12 +103,39 @@ export const OFFICERS = [
     { code: 'AIO-000195', name: 'Bimol Kumar', email: 'officer195@agrivision.com', areaId: 'rangpur', territoryId: 'rangpur-sadar' },
 ];
 
-// Non-officer accounts, mirroring the demo logins in AuthContext.defaultUsers.
+// The password every seeded account is created with. Demo data in a throwaway
+// emulator — it is not a secret, and it is stated in the README so the account
+// list and the password cannot drift apart.
+export const DEMO_PASSWORD = '123456';
+
+/**
+ * Page access for a Sales Officer. Includes `/sales-entry`, because raising the
+ * order that Feature 1 blocks is the officer's own job — step 2 of the demo
+ * script in INTERNAL-PLAN.md §7. It does NOT include `/audit-log`: Security
+ * Rules let only an admin or an Accountant read that collection, so offering
+ * the page to an officer would open a screen that can only show an error.
+ */
+export const OFFICER_PERMISSIONS = [
+    '/', '/sales-entry', '/sales', '/customer', '/customer-ledger',
+    '/sales-report', '/stock-report',
+];
+
+// Non-officer accounts. Roles come from ROLE in src/services/constants.js —
+// the same vocabulary firestore.rules reads out of users/{uid}.
 export const STAFF = [
     { code: 'AIU-000001', name: 'Md. Ruksat Hasan Akib', email: 'akib@agrivision.com', role: 'Super Admin', permissions: 'all' },
     { code: 'AIU-000002', name: 'Nazmul Islam', email: 'nazmul@agrivision.com', role: 'Managing Director', permissions: 'all' },
-    { code: 'AIU-000003', name: 'Sadia Akter', email: 'sadia@agrivision.com', role: 'Area Manager', areaId: 'bogura', permissions: ['/', '/sales', '/customer', '/license', '/sales-report'] },
-    { code: 'AIU-000004', name: 'Rahim Uddin', email: 'rahim@agrivision.com', role: 'Accountant', permissions: ['/', '/customer-ledger', '/cash-collection', '/expense'] },
+    // Needs /sales-entry to perform the step-4 override, and /cancel-sales
+    // because PROJECT-OUTLINE.md §3.4 makes cancellation their decision.
+    // areaId is 'bogura-sadar', not 'bogura': firestore.rules scopes a manager
+    // with myArea(resource.data.areaId), an exact string match against the
+    // dealer's own areaId. 21 of the 30 seeded dealers are 'bogura-sadar' and
+    // none is 'bogura', so the old value matched nothing and this manager would
+    // have seen an empty dealer list the moment the real rules were deployed.
+    { code: 'AIU-000003', name: 'Sadia Akter', email: 'sadia@agrivision.com', role: 'Area Manager', areaId: 'bogura-sadar', permissions: ['/', '/sales-entry', '/sales', '/cancel-sales', '/customer', '/license', '/sales-report'] },
+    // The Accountant gets /audit-log because firestore.rules already grants
+    // that role the read (see the audit_log match block).
+    { code: 'AIU-000004', name: 'Rahim Uddin', email: 'rahim@agrivision.com', role: 'Accountant', permissions: ['/', '/customer-ledger', '/cash-collection', '/expense', '/audit-log'] },
     { code: 'AIU-000005', name: 'Karim Hossain', email: 'karim@agrivision.com', role: 'Storekeeper', permissions: ['/', '/purchase', '/batch', '/stock-report', '/product-demand'] },
 ];
 

@@ -46,8 +46,25 @@ It takes about twenty seconds and then stays in the foreground.
 npm run start:emulator
 ```
 
-Opens on http://localhost:3000, pointed at the emulator. Log in with
-`akib@agrivision.com` / `123456`.
+Opens on http://localhost:3000, pointed at the emulator.
+
+Logins are Firebase Authentication accounts, created by the seed — so
+`dev:reset` produces a working login every time. Every account uses the
+password `123456`, and each one's Auth UID is its `users/` document ID, which
+is where Security Rules read the role from.
+
+| Email | Role | What it is for |
+|---|---|---|
+| `akib@agrivision.com` | Super Admin | everything, including the audit log |
+| `nazmul@agrivision.com` | Managing Director | everything |
+| `sadia@agrivision.com` | Area Manager | the only demo role that may override a blocked sale |
+| `rahim@agrivision.com` | Accountant | ledgers, expenses, audit log |
+| `karim@agrivision.com` | Storekeeper | purchase, stock, product demands |
+| `officer10@agrivision.com` | Sales Officer | raises orders; **cannot** override a block |
+
+`officer10` owns `AIC-000001`, the dealer whose pesticide licence has expired —
+the pair the Feature 1 demonstration uses. Any `officerNN@agrivision.com` from
+the seed also works.
 
 > **The emulator keeps nothing on disk.** Close that first terminal, or restart
 > your machine, and the data is gone. Run `npm run dev:reset` again — that is

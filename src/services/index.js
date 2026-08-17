@@ -28,7 +28,7 @@ export {
     PAY_METHOD, PAYMENT_STATUS, EXPENSE_TYPE,
     PURCHASE_STATUS, RETURN_STATUS, REPACK_STATUS,
     COMMISSION_BASIS, COMMISSION_METHOD, COMMISSION_STATUS,
-    ROLE, AUDIT_ACTION, RULE_CODE,
+    ROLE, OVERRIDE_ROLES, AUDIT_ACTION, RULE_CODE,
 } from './constants';
 
 // ── products ──────────────────────────────────────────────────────────────
