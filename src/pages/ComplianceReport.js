@@ -1,16 +1,21 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { complianceReport, expirySummary, formatDate } from '../services';
+import { complianceReport, formatDate } from '../services';
 import { Notice, useCollection } from '../components/Notice';
 
 // Step 7 of the demo script in docs/INTERNAL-PLAN.md §7, and part 6 of
 // Feature 1 in docs/UNIQUE-FEATURES.md §5. Both queries already existed in
 // src/services/licences.js and nothing rendered them.
 //
-// Read-only. complianceReport() returns every DEALER licence with the derived
-// status and daysRemaining attached, worst first; expirySummary() returns the
-// counts for the 60 / 30 / 7 / expired bands that Feature 1 part 3 describes.
-// Neither is recomputed here — the status is derived in one place (decision D5)
-// and this screen only paints it.
+// Read-only. complianceReport() returns { rows, summary, scope }: every DEALER
+// licence with the derived status and daysRemaining attached worst first, the
+// counts for the 60 / 30 / 7 / expired bands that Feature 1 part 3 describes,
+// and — for a caller who does not see the whole company — a description of what
+// was left out. Nothing is recomputed here: the status is derived in one place
+// (decision D5) and this screen only paints it.
+//
+// `scope` is non-null for an Area Manager, whose Security Rules let them read
+// only their own area's sales and dealers. The banner below is not decoration:
+// the same table means two different things depending on who is signed in.
 
 const thS = { padding: '10px 12px', color: 'white', fontWeight: '600', fontSize: '13px', textAlign: 'left' };
 const tdS = { padding: '9px 12px', fontSize: '13px', color: '#333', borderBottom: '1px solid #f0f0f0', verticalAlign: 'middle' };
@@ -63,15 +68,14 @@ function ComplianceReport() {
     const [problemsOnly, setProblemsOnly] = useState(false);
     const [search, setSearch] = useState('');
 
-    // Both service calls in one loader, so the cards and the table are always
-    // from the same read rather than two reads that can disagree.
-    const load = useCallback(async () => {
-        const [rows, summary] = await Promise.all([complianceReport(), expirySummary({ scope: 'dealer' })]);
-        return [{ rows, summary }];
-    }, []);
+    // One call. complianceReport() returns its own summary, counted from the
+    // rows it is returning — the cards and the table cannot disagree, which a
+    // second expirySummary() read could not guarantee now that the table is
+    // scoped to the caller's dealers and that read would not be.
+    const load = useCallback(async () => [await complianceReport()], []);
 
     const { rows: wrapped, loading, error } = useCollection(load, { what: 'the compliance report' });
-    const { rows = [], summary = null } = wrapped[0] || {};
+    const { rows = [], summary = null, scope = null } = wrapped[0] || {};
 
     const visible = useMemo(() => rows.filter(r => {
         if (problemsOnly && bandOf(r.status).rank > 3) return false;
@@ -98,6 +102,23 @@ function ComplianceReport() {
         <div>
             {loading && <Notice tone="info">Loading the compliance report…</Notice>}
             {error && <Notice tone="warn">{error}</Notice>}
+
+            {/* Every figure below is restricted when this is shown. A compliance
+                total reads as a total, so the caption has to say when it is not
+                one — an area figure mistaken for the company's understates the
+                exposure, which on this screen is the dangerous direction. */}
+            {scope && (
+                <div style={{
+                    background: '#e7f1ff', border: '1px solid #b6d4fe', borderLeft: '4px solid #0d6efd',
+                    borderRadius: 8, padding: '10px 14px', marginBottom: 14, fontSize: 13, color: '#084298',
+                }}>
+                    <b>Scoped to {scope.label}.</b>{' '}
+                    Counts, bands and the value sold under an override below cover the{' '}
+                    <b>{scope.dealers}</b> dealer{scope.dealers === 1 ? '' : 's'} you are responsible for —
+                    they are not company-wide totals. A Super Admin, Managing Director or Accountant
+                    sees the whole company on this screen.
+                </div>
+            )}
 
             {summary && (
                 <div style={{ background: 'white', borderRadius: 10, boxShadow: '0 1px 6px rgba(0,0,0,0.08)', padding: '16px 20px', marginBottom: 16 }}>

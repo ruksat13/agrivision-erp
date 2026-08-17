@@ -260,6 +260,18 @@ function Admin() {
 
     const permLabel = (u) => u.permissions === 'all' ? 'All pages' : `${(u.permissions || []).length} pages`;
 
+    // Writing users/ is a Super Admin's alone — see the users block in
+    // firestore.rules. A Managing Director reaches this page (permissions:
+    // 'all') and may READ the directory, but editing page access is system
+    // administration, not an executive act: a role that can rewrite its own
+    // permissions is a Super Admin under another name.
+    //
+    // So the controls are hidden rather than left to fail. A button the server
+    // refuses is worse than no button — it reads as a bug instead of a rule,
+    // and the same reasoning is why firestore.rules refuses to widen the grant
+    // just because the page offers it.
+    const mayEdit = currentUser?.role === 'Super Admin';
+
     const filtered = users.filter(u =>
         (u.name || '').toLowerCase().includes(search.toLowerCase()) ||
         (u.email || '').toLowerCase().includes(search.toLowerCase()) ||
@@ -282,7 +294,9 @@ function Admin() {
                 <div style={{ display: 'flex', gap: '10px' }}>
                     <input placeholder="🔍 Search user..." value={search} onChange={e => setSearch(e.target.value)}
                         style={{ padding: '7px 10px', border: '1px solid #dee2e6', borderRadius: '6px', fontSize: '13px', width: '200px' }} />
-                    <button onClick={() => setShowAdd(true)} style={{ padding: '7px 16px', background: '#0d6efd', color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', cursor: 'pointer' }}>+ New User</button>
+                    {mayEdit && (
+                        <button onClick={() => setShowAdd(true)} style={{ padding: '7px 16px', background: '#0d6efd', color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', cursor: 'pointer' }}>+ New User</button>
+                    )}
                 </div>
             </div>
 
@@ -313,9 +327,15 @@ function Admin() {
                                     <span style={{ background: u.status === 'Active' ? '#d4edda' : '#f8d7da', color: u.status === 'Active' ? '#155724' : '#721c24', padding: '3px 10px', borderRadius: '20px', fontSize: '12px' }}>{u.status}</span>
                                 </td>
                                 <td style={{ ...tdS, textAlign: 'right', whiteSpace: 'nowrap' }}>
-                                    <button title="Set Access" disabled={busy} onClick={() => setPermUser(u)} style={{ padding: '5px 10px', background: '#0dcaf0', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '13px', marginRight: '4px' }}>🔒</button>
-                                    {u.status === 'Active' && (
-                                        <button title="Deactivate" disabled={busy} onClick={() => handleDeactivate(u)} style={{ padding: '5px 10px', background: '#6c757d', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '13px' }}>✕</button>
+                                    {mayEdit ? (
+                                        <>
+                                            <button title="Set Access" disabled={busy} onClick={() => setPermUser(u)} style={{ padding: '5px 10px', background: '#0dcaf0', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '13px', marginRight: '4px' }}>🔒</button>
+                                            {u.status === 'Active' && (
+                                                <button title="Deactivate" disabled={busy} onClick={() => handleDeactivate(u)} style={{ padding: '5px 10px', background: '#6c757d', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '13px' }}>✕</button>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <span style={{ fontSize: 12, color: '#adb5bd', fontStyle: 'italic' }}>view only</span>
                                     )}
                                 </td>
                             </tr>
@@ -328,6 +348,14 @@ function Admin() {
             </div>
 
             <div style={{ padding: '14px 20px', fontSize: '12px', color: '#6c757d', borderTop: '1px solid #f0f0f0', lineHeight: 1.6 }}>
+                {!mayEdit && (
+                    <div style={{ marginBottom: 8, color: '#084298', background: '#e7f1ff', border: '1px solid #b6d4fe', borderRadius: 6, padding: '8px 12px' }}>
+                        <b>View only.</b> Editing users and page access is the Super Admin's —
+                        Security Rules refuse a write here from any other role, including a
+                        Managing Director, because an account that can rewrite its own
+                        permissions is a Super Admin whatever its title says.
+                    </div>
+                )}
                 💡 Click 🔒 on any user to grant or revoke page access. Roles come from the
                 access matrix in PROJECT-OUTLINE.md §4 and are what Security Rules read —
                 changing a role changes what that account can do on the server, not just

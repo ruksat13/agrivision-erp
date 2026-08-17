@@ -116,13 +116,26 @@ service cloud.firestore {
       allow delete: if false;                       // deactivate instead
     }
 
+    // The Managing Director writes here through isAdmin(), not isSuperAdmin().
+    //
+    // That is a deliberate correction, not a copy of Super Admin. The MD held
+    // `permissions: 'all'` and `sales` create (through isAdmin) but was in
+    // neither of these two lists, so raising a CREDIT sale failed: createSale()
+    // moves customers.balance in the same batch as the invoice, and the batch
+    // fails whole. A cash sale paid in full went through, a credit one did not
+    // — the rules disagreed with themselves rather than with the role.
+    //
+    // The authority granted is an Area Manager's, without the area restriction:
+    // the MD is above that role and their scope is the whole company. It stops
+    // short of Super Admin, which additionally owns `products`, `licences` and
+    // `users` — those are system administration, and the MD is an executive.
     match /customers/{customerId} {
       allow read:   if isAdmin()
                     || myArea(resource.data.areaId)
                     || mine(resource.data.officerId)
                     || hasRole(['Accountant']);
-      allow create: if isSuperAdmin() || hasRole(['Area Manager', 'Sales Officer']);
-      allow update: if isSuperAdmin()
+      allow create: if isAdmin() || hasRole(['Area Manager', 'Sales Officer']);
+      allow update: if isAdmin()
                     || myArea(resource.data.areaId)
                     || mine(resource.data.officerId)
                     // the ledger owns the balance; a screen must not set it directly
@@ -183,8 +196,30 @@ service cloud.firestore {
 
     // ── Users ────────────────────────────────────────────────────────────
 
+    // Read is the smallest grant that makes the "Received by" selector on
+    // /expense work, which is the only screen that needs a staff directory.
+    //
+    // Security Rules cannot grant a subset of FIELDS — read is per document —
+    // so "just the id and the name" is not expressible, and the real choice is
+    // which ROLES may read the document at all. It goes to the Accountant, who
+    // owns /expense, and to the two admin roles, whose /admin lists staff.
+    // Sales Officer, Area Manager and Storekeeper keep self-only read: no
+    // screen of theirs needs the directory.
+    //
+    // What that exposes is a colleague's name, email, role and page
+    // permissions. No credential is here — Firebase Auth holds those and this
+    // collection has never carried a password (that was the plaintext login
+    // this replaced). Page permissions are configuration, not a secret: knowing
+    // an Accountant may reach /expense tells you nothing the rules do not
+    // already enforce on the server.
+    //
+    // WRITE stays with the Super Admin alone, including for the MD. /admin
+    // edits page access, and a role that can rewrite its own permissions is a
+    // Super Admin under another name — which is exactly what the MD is not.
     match /users/{uid} {
-      allow read:   if isSuperAdmin() || (signedIn() && request.auth.uid == uid);
+      allow read:   if isAdmin()
+                    || hasRole(['Accountant'])
+                    || (signedIn() && request.auth.uid == uid);
       allow create, update: if isSuperAdmin();
       allow delete: if false;
     }
@@ -193,8 +228,20 @@ service cloud.firestore {
     // Append-only, and nobody may amend it — including a Super Admin
     // (PROJECT-OUTLINE.md §3.1). An override must carry a written reason.
 
+    // The Area Manager reads this because they are the role that AUTHORISES an
+    // override (canOverrideRules() below), and an override its own author
+    // cannot audit is a weaker control than one they can. It also makes the
+    // demonstration sequence continuous: §7 has the same person waive a block
+    // at step 4 and read the record of it at step 5.
+    //
+    // The grant is company-wide, not scoped to their area, because audit_log
+    // entries carry no areaId — they record a user, an action and a document,
+    // and the document may belong to any collection. Scoping this would mean
+    // denormalising an areaId onto every entry, which is a schema change and
+    // not one worth making to narrow a log that is already append-only and
+    // readable by no one who cannot already read the records it describes.
     match /audit_log/{entryId} {
-      allow read:   if isAdmin() || hasRole(['Accountant']);
+      allow read:   if isAdmin() || hasRole(['Area Manager', 'Accountant']);
 
       // An override must carry a written reason AND come from someone entitled
       // to give one. Both halves are refused here, on the server, so the

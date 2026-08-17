@@ -7,7 +7,7 @@
 
 import { COL, LICENCE_SCOPE, LICENCE_TYPE, LICENCE_FOR_CATEGORY, RULE_CODE } from './constants';
 import {
-    createDoc, updateDoc_, getById, getByIdOrThrow, listDocs,
+    createDoc, updateDoc_, getById, getByIdOrThrow, listDocs, actorScope,
     requireFields, assertEnum, toTimestamp, toDate, formatDate, toNumber, money,
 } from './core';
 import { listCustomers } from './customers';
@@ -78,9 +78,17 @@ export async function listExpiring({ scope = 'dealer', withinDays = 60 } = {}) {
     return rows.filter(r => r.daysRemaining !== null && r.daysRemaining <= withinDays);
 }
 
-/** Counts for the 60 / 30 / 7 / expired cards. */
-export async function expirySummary({ scope = 'dealer' } = {}) {
-    const rows = await listLicences({ scope });
+/**
+ * Counts for the 60 / 30 / 7 / expired cards, from licence rows already read.
+ *
+ * Separate from expirySummary() so complianceReport() can count the rows it is
+ * actually showing rather than issuing a second, unscoped read — one definition
+ * of a band, two callers, and no way for the cards to contradict the table.
+ *
+ * The bands NEST: a licence with 5 days left is inside all of within7, within30
+ * and within60. Only `expired` and `active` are exclusive. The screen says so.
+ */
+export function countByBand(rows) {
     const d = (r) => r.daysRemaining;
     return {
         expired: rows.filter(r => d(r) !== null && d(r) < 0).length,
@@ -90,6 +98,11 @@ export async function expirySummary({ scope = 'dealer' } = {}) {
         active: rows.filter(r => d(r) > 60).length,
         total: rows.length,
     };
+}
+
+/** Counts for the 60 / 30 / 7 / expired cards, reading the licences itself. */
+export async function expirySummary({ scope = 'dealer' } = {}) {
+    return countByBand(await listLicences({ scope }));
 }
 
 // ── Writes ────────────────────────────────────────────────────────────────
@@ -207,9 +220,24 @@ const LICENCE_RULE_CODES = [RULE_CODE.LICENCE_EXPIRED, RULE_CODE.LICENCE_MISSING
  * listCommissions() already take. The per-sale line lookup that follows runs
  * only for sales that carry an override, and an override needs a manager's
  * written reason, so that set stays small by construction.
+ *
+ * Scoped by actorScope(), for the reason listCustomers() is: `sales` is
+ * readable by an Area Manager only where `areaId` is theirs, and Security Rules
+ * refuse an unscoped LIST rather than narrowing it. Asking for every sale gave
+ * an Area Manager permission-denied and an empty compliance report.
+ *
+ * The scope changes what the figure MEANS, not just whether it loads: an Area
+ * Manager gets the exposure in their own area, which is the number they can act
+ * on. Super Admin, Managing Director and Accountant read the collection
+ * unconditionally and keep the company-wide total. complianceReport() reports
+ * which of the two the caller is looking at, so a partial figure is never
+ * presented as a total.
  */
 export async function overriddenLicenceValue() {
-    const sales = await listDocs(COL.SALES, {});
+    const scope = actorScope();
+    const sales = await listDocs(COL.SALES, {
+        filters: [['areaId', '==', scope.areaId], ['officerId', '==', scope.officerId]],
+    });
     const waived = sales.filter(s =>
         s.status !== 'Cancelled'
         && (s.ruleChecks || []).some(r => r.overridden && LICENCE_RULE_CODES.includes(r.code)));
@@ -217,7 +245,23 @@ export async function overriddenLicenceValue() {
     const byKey = new Map();
 
     for (const sale of waived) {
-        const items = await listDocs(COL.SALE_ITEMS, { filters: [['saleId', '==', sale.invoiceNo]] });
+        // The scope goes on this query too. `sale_items` is row-scoped by the
+        // same rule as `sales` — it carries its own denormalised officerId and
+        // areaId precisely so it can be (schema D2) — so filtering by saleId
+        // alone is an unscoped LIST and is refused, even though every line it
+        // would return belongs to a sale this caller just read. Scoping only
+        // the outer query left the report still failing for an Area Manager,
+        // one level further down than before.
+        //
+        // Two equality filters need no composite index: Firestore serves those
+        // from its automatic single-field indexes.
+        const items = await listDocs(COL.SALE_ITEMS, {
+            filters: [
+                ['saleId', '==', sale.invoiceNo],
+                ['areaId', '==', scope.areaId],
+                ['officerId', '==', scope.officerId],
+            ],
+        });
         const byProduct = new Map(items.map(it => [it.productId, it]));
 
         (sale.ruleChecks || [])
@@ -250,6 +294,24 @@ const dealerTotal = (byKey, dealerId) =>
  * an absence worth being quiet about. Those dealers are found by diffing
  * listCustomers() against the licence holders and come back as their own band,
  * `status: 'No licence'`, above the expired ones.
+ *
+ * Returns { rows, summary, scope }.
+ *
+ * `scope` is null for a caller who sees the whole company and describes the
+ * restriction otherwise, so the screen can say which it is showing. That
+ * matters more here than on other screens: a compliance total is read as a
+ * total, and an area figure captioned as a company one understates exposure —
+ * on this particular report, the wrong kind of wrong.
+ *
+ * `summary` is computed HERE rather than by a second expirySummary() call from
+ * the page, so the cards and the table cannot disagree. They would have: the
+ * table is now restricted to the caller's dealers and an independent
+ * expirySummary() would still have counted every licence in the company.
+ *
+ * The licence rows are restricted to the scoped dealers too, not just the
+ * override values. listLicences() reads a collection any signed-in user may
+ * read in full, so leaving it unfiltered would load fine and quietly mix every
+ * area's licences into a table whose 'No licence' rows came from one area.
  */
 export async function complianceReport() {
     const [licences, dealers, byKey] = await Promise.all([
@@ -258,9 +320,15 @@ export async function complianceReport() {
         overriddenLicenceValue(),
     ]);
 
-    const covered = new Set(licences.map(l => l.holderId));
+    const actor = actorScope();
+    const restricted = Boolean(actor.areaId || actor.officerId);
+    const mine = new Set(dealers.map(d => d.code));
 
-    const licenceRows = licences
+    // `licences` is company-wide even when the dealer list is not — see above.
+    const visible = restricted ? licences.filter(l => mine.has(l.holderId)) : licences;
+    const covered = new Set(visible.map(l => l.holderId));
+
+    const licenceRows = visible
         .map(l => ({
             ...l,
             valueSoldUnderOverride: byKey.get(`${l.holderId}|${l.licenceType}`) ?? 0,
@@ -289,5 +357,18 @@ export async function complianceReport() {
         .sort((a, b) => (b.valueSoldUnderOverride - a.valueSoldUnderOverride)
             || a.holderName.localeCompare(b.holderName));
 
-    return [...uncoveredRows, ...licenceRows];
+    return {
+        rows: [...uncoveredRows, ...licenceRows],
+        summary: countByBand(licenceRows),
+        scope: restricted
+            ? {
+                areaId: actor.areaId ?? null,
+                officerId: actor.officerId ?? null,
+                dealers: dealers.length,
+                label: actor.areaId
+                    ? `your area — ${actor.areaId}`
+                    : 'the dealers you are responsible for',
+            }
+            : null,
+    };
 }

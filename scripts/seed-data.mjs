@@ -112,8 +112,10 @@ export const DEMO_PASSWORD = '123456';
  * Page access for a Sales Officer. Includes `/sales-entry`, because raising the
  * order that Feature 1 blocks is the officer's own job — step 2 of the demo
  * script in INTERNAL-PLAN.md §7. It does NOT include `/audit-log`: Security
- * Rules let only an admin or an Accountant read that collection, so offering
- * the page to an officer would open a screen that can only show an error.
+ * Rules let only an admin, an Area Manager or an Accountant read that
+ * collection, so offering the page to an officer would open a screen that can
+ * only show an error. The officer is the person a block is aimed at, not one
+ * of the people who may waive it, so there is nothing of theirs to audit.
  *
  * Nor `/compliance-report`. Licence upkeep is the Area Manager's and the
  * Accountant's — firestore.rules grants create/update on `licences` to exactly
@@ -138,7 +140,12 @@ export const STAFF = [
     // dealer's own areaId. 21 of the 30 seeded dealers are 'bogura-sadar' and
     // none is 'bogura', so the old value matched nothing and this manager would
     // have seen an empty dealer list the moment the real rules were deployed.
-    { code: 'AIU-000003', name: 'Sadia Akter', email: 'sadia@agrivision.com', role: 'Area Manager', areaId: 'bogura-sadar', permissions: ['/', '/sales-entry', '/sales', '/cancel-sales', '/customer', '/license', '/compliance-report', '/sales-report'] },
+    // /audit-log is here because this is the role that authorises an override.
+    // Steps 4 and 5 of the demo script are the same person waiving a block and
+    // then reading the record of it; without this the sequence needed a third
+    // login, and more importantly an override its author cannot audit is a
+    // weaker control. firestore.rules grants the matching read.
+    { code: 'AIU-000003', name: 'Sadia Akter', email: 'sadia@agrivision.com', role: 'Area Manager', areaId: 'bogura-sadar', permissions: ['/', '/sales-entry', '/sales', '/cancel-sales', '/customer', '/license', '/compliance-report', '/sales-report', '/audit-log'] },
     // The Accountant gets /audit-log because firestore.rules already grants
     // that role the read (see the audit_log match block), and
     // /compliance-report for the same reason as the Area Manager below.
