@@ -31,6 +31,7 @@ import Repacking from './pages/Repacking';
 import ProductDemand from './pages/ProductDemand';
 import Reports from './pages/Reports';
 import License from './pages/License';
+import ComplianceReport from './pages/ComplianceReport';
 import Product from './pages/Product';
 import HR from './pages/HR';
 import Customer from './pages/Customer';
@@ -158,6 +159,7 @@ function App() {
                       <Route path="/product-demand-report" element={<Reports type="Product Demand" />} />
                       <Route path="/license" element={<License type="License" />} />
                       <Route path="/license-category" element={<License type="Category" />} />
+                      <Route path="/compliance-report" element={<ComplianceReport />} />
                       <Route path="/product" element={<Product />} />
                       <Route path="/daily-visit" element={<HR type="Daily Visit" />} />
                       <Route path="/attendance" element={<HR type="Attendance" />} />

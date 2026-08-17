@@ -114,6 +114,12 @@ export const DEMO_PASSWORD = '123456';
  * script in INTERNAL-PLAN.md §7. It does NOT include `/audit-log`: Security
  * Rules let only an admin or an Accountant read that collection, so offering
  * the page to an officer would open a screen that can only show an error.
+ *
+ * Nor `/compliance-report`. Licence upkeep is the Area Manager's and the
+ * Accountant's — firestore.rules grants create/update on `licences` to exactly
+ * those two plus a Super Admin, so page access is matched to the authority to
+ * act on what the page shows. An officer who cannot renew a licence has no use
+ * for the register of them.
  */
 export const OFFICER_PERMISSIONS = [
     '/', '/sales-entry', '/sales', '/customer', '/customer-ledger',
@@ -132,10 +138,11 @@ export const STAFF = [
     // dealer's own areaId. 21 of the 30 seeded dealers are 'bogura-sadar' and
     // none is 'bogura', so the old value matched nothing and this manager would
     // have seen an empty dealer list the moment the real rules were deployed.
-    { code: 'AIU-000003', name: 'Sadia Akter', email: 'sadia@agrivision.com', role: 'Area Manager', areaId: 'bogura-sadar', permissions: ['/', '/sales-entry', '/sales', '/cancel-sales', '/customer', '/license', '/sales-report'] },
+    { code: 'AIU-000003', name: 'Sadia Akter', email: 'sadia@agrivision.com', role: 'Area Manager', areaId: 'bogura-sadar', permissions: ['/', '/sales-entry', '/sales', '/cancel-sales', '/customer', '/license', '/compliance-report', '/sales-report'] },
     // The Accountant gets /audit-log because firestore.rules already grants
-    // that role the read (see the audit_log match block).
-    { code: 'AIU-000004', name: 'Rahim Uddin', email: 'rahim@agrivision.com', role: 'Accountant', permissions: ['/', '/customer-ledger', '/cash-collection', '/expense', '/audit-log'] },
+    // that role the read (see the audit_log match block), and
+    // /compliance-report for the same reason as the Area Manager below.
+    { code: 'AIU-000004', name: 'Rahim Uddin', email: 'rahim@agrivision.com', role: 'Accountant', permissions: ['/', '/customer-ledger', '/cash-collection', '/expense', '/audit-log', '/compliance-report'] },
     { code: 'AIU-000005', name: 'Karim Hossain', email: 'karim@agrivision.com', role: 'Storekeeper', permissions: ['/', '/purchase', '/batch', '/stock-report', '/product-demand'] },
 ];
 

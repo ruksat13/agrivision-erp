@@ -87,6 +87,7 @@ export const menuItems = [
         name: 'License', icon: '🪪', children: [
             { name: 'License', path: '/license' },
             { name: 'Category', path: '/license-category' },
+            { name: 'Compliance Report', path: '/compliance-report' },
         ]
     },
     { name: 'Product', path: '/product', icon: '🌿' },
