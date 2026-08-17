@@ -242,10 +242,21 @@ export const COMPANY_LICENCES = [
  *   at all · the rest valid for a year
  */
 export function dealerLicences(dealers, today = new Date()) {
+    // Local YYYY-MM-DD, deliberately not toISOString().slice(0, 10) — the same
+    // bug that was fixed in SalesEntry.js. toISOString() converts to UTC first,
+    // so seeding between 00:00 and 06:00 local at UTC+6 would move every expiry
+    // back a day. These offsets are what the whole Feature 1 demonstration is
+    // measured against ("expired a fortnight ago"), so a silent one-day drift
+    // depending on the hour the seed ran is not acceptable.
+    //
+    // This mirrors formatDate() in src/services/core.js. It is repeated rather
+    // than imported because this script is deliberately self-contained — see
+    // the header of seed.mjs.
+    const pad = (n) => String(n).padStart(2, '0');
     const plus = (days) => {
         const d = new Date(today);
         d.setDate(d.getDate() + days);
-        return d.toISOString().slice(0, 10);
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
     };
 
     const problems = {
