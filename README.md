@@ -36,9 +36,14 @@ Two terminals.
 npm run dev:reset
 ```
 
-That single command starts the Firestore and Auth emulators, loads development
-security rules, wipes whatever was there, seeds 285 documents and verifies them.
-It takes about twenty seconds and then stays in the foreground.
+That single command starts the Firestore and Auth emulators, waits for **both**
+of them, loads development security rules, wipes whatever was there, seeds 285
+documents, creates the twelve logins and verifies the lot — including signing in
+as a Super Admin and a Sales Officer to prove the logins work. It takes about
+forty seconds and then stays in the foreground.
+
+If any step fails it stops the emulator and exits non-zero, rather than leaving
+a populated database you cannot sign in to.
 
 **Terminal 2 — the app:**
 

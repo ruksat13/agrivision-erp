@@ -4,10 +4,14 @@
  *
  *     npm run dev:reset
  *
- * Starts the Firestore and Auth emulators, waits for them, loads the
- * development security rules, wipes anything already there and seeds 240
- * documents. Then it stays in the foreground with the emulator, so Ctrl-C
- * stops everything together.
+ * Starts the Firestore and Auth emulators, waits for BOTH of them, loads the
+ * development security rules, wipes anything already there, seeds 285
+ * documents and creates the twelve logins. Then it stays in the foreground with
+ * the emulator, so Ctrl-C stops everything together.
+ *
+ * Nothing here is optional and nothing is best-effort: if any step fails the
+ * emulator is stopped and the command exits non-zero, because a half-seeded
+ * database that cannot be logged into is worse than no database at all.
  *
  * The emulator keeps nothing on disk, so this has to be re-run after every
  * machine restart. That is the whole reason this script exists — it turns four
@@ -30,6 +34,7 @@ const KEEP = args.includes('--keep');
 
 const HOST = '127.0.0.1';
 const FIRESTORE_PORT = 8080;      // matches firebase.json
+const AUTH_PORT = 9099;           // matches firebase.json
 const READY_TIMEOUT_MS = 90_000;
 
 const npx = process.platform === 'win32' ? 'npx.cmd' : 'npx';
@@ -49,12 +54,31 @@ const emulator = spawn(
 
 let shuttingDown = false;
 
+/**
+ * Kill the emulator and everything it started.
+ *
+ * On Windows `spawn(..., { shell: true })` puts a cmd.exe between us and npx,
+ * and npx starts java. Signalling the cmd leaves the java process holding 8080
+ * and 9099, so the next `npm run dev:reset` finds its ports taken — and a run
+ * that failed halfway leaves an emulator up with a seeded Firestore and no
+ * logins, which looks exactly like the machine working. taskkill /T takes the
+ * whole tree.
+ */
+const killEmulator = () => {
+    if (emulator.killed || emulator.exitCode !== null) return;
+    if (process.platform === 'win32' && emulator.pid) {
+        spawn('taskkill', ['/pid', String(emulator.pid), '/T', '/F'], { stdio: 'ignore' });
+    } else {
+        emulator.kill('SIGINT');
+    }
+};
+
 const stop = (code) => {
     if (shuttingDown) return;
     shuttingDown = true;
-    if (!emulator.killed) emulator.kill('SIGINT');
+    killEmulator();
     // Give the emulator a moment to release its ports before we exit.
-    setTimeout(() => process.exit(code), 800);
+    setTimeout(() => process.exit(code), 1200);
 };
 
 process.on('SIGINT', () => { say('shutting down…'); stop(0); });
@@ -68,8 +92,15 @@ emulator.on('exit', (code) => {
     }
 });
 
-// ── Wait for it to accept connections ─────────────────────────────────────
+// ── Wait for them to accept connections ───────────────────────────────────
+//
+// BOTH of them. `firebase emulators:start` brings Firestore up first and Auth
+// a few seconds later, so waiting only on 8080 — which this did — let the seed
+// start while 9099 was still dead. Everything up to the last step succeeded,
+// account creation failed, and what was left behind was a fully seeded database
+// with no way to log in. That is the bug this waits out.
 
+/** Firestore answers on 8080 as soon as it is serving; any response will do. */
 async function waitForFirestore() {
     const deadline = Date.now() + READY_TIMEOUT_MS;
     while (Date.now() < deadline) {
@@ -77,10 +108,26 @@ async function waitForFirestore() {
             await fetch(`http://${HOST}:${FIRESTORE_PORT}/`);
             return true;
         } catch {
-            await new Promise(r => setTimeout(r, 1000));
+            await new Promise(r => setTimeout(r, 500));
         }
     }
     return false;
+}
+
+/**
+ * Auth needs more than a response: it binds the port before the
+ * identitytoolkit routes are mounted, and reports `authEmulator.ready` when it
+ * is genuinely usable. seed-auth.mjs owns that check, so this imports it rather
+ * than keeping a second copy that could drift.
+ */
+async function waitForAuth() {
+    const { waitForAuthEmulator } = await import('./seed-auth.mjs');
+    try {
+        await waitForAuthEmulator({ timeoutMs: READY_TIMEOUT_MS });
+        return true;
+    } catch {
+        return false;
+    }
 }
 
 // ── Run a child script and resolve on success ─────────────────────────────
@@ -98,10 +145,18 @@ function run(scriptArgs, label) {
 
 (async () => {
     if (!await waitForFirestore()) {
-        bad(`the emulator did not come up within ${READY_TIMEOUT_MS / 1000}s.`);
+        bad(`Firestore did not come up on ${HOST}:${FIRESTORE_PORT} within ${READY_TIMEOUT_MS / 1000}s.`);
         return stop(1);
     }
-    say('emulators are up.');
+    say(`Firestore is up on ${HOST}:${FIRESTORE_PORT}.`);
+
+    if (!await waitForAuth()) {
+        bad(`Auth did not become ready on ${HOST}:${AUTH_PORT} within ${READY_TIMEOUT_MS / 1000}s.`);
+        bad('Without it the seed can create no logins, so this stops rather than');
+        bad('leaving you a database you cannot sign in to.');
+        return stop(1);
+    }
+    say(`Auth is up on ${HOST}:${AUTH_PORT}.`);
 
     try {
         // firebase.json points the emulator at firestore.rules, which are the
@@ -119,6 +174,11 @@ function run(scriptArgs, label) {
         }
     } catch (err) {
         bad(err.message);
+        // Take the emulator down with us. Leaving it up after a failed seed is
+        // what made this hard to spot: a running emulator with a populated
+        // Firestore and no Auth accounts looks like a working machine right up
+        // until the login screen refuses you.
+        bad('The emulator is being stopped — this database is not usable.');
         return stop(1);
     }
 

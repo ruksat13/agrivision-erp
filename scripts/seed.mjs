@@ -22,7 +22,7 @@
 import { initializeApp } from 'firebase/app';
 import {
     getFirestore, collection, doc, getDocs, writeBatch,
-    connectFirestoreEmulator, Timestamp, serverTimestamp,
+    connectFirestoreEmulator, Timestamp, serverTimestamp, terminate,
 } from 'firebase/firestore';
 
 import {
@@ -32,7 +32,7 @@ import {
     DEMO_PASSWORD, OFFICER_PERMISSIONS,
     SAFETY_DATA, EMPTY_SAFETY, safetyFor, PLACEHOLDER_SOURCE,
 } from './seed-data.mjs';
-import { seedAuth } from './seed-auth.mjs';
+import { seedAuth, waitForAuthEmulator } from './seed-auth.mjs';
 
 // ── Config ────────────────────────────────────────────────────────────────
 // Same values as src/firebase.js. The web config is public by design; security
@@ -468,6 +468,14 @@ async function main() {
     const target = EMULATOR ? 'EMULATOR at 127.0.0.1:8080' : `project "${firebaseConfig.projectId}"`;
     console.log(`\nAgriVision seed → ${target}${DRY ? '  (dry run)' : ''}\n`);
 
+    // Before anything is written. The logins are created at the END of this
+    // script, because their UIDs have to match the users/ documents — so an
+    // Auth emulator that is not up yet used to be discovered only after 285
+    // documents had landed, leaving a seeded database with no way in. Waiting
+    // here costs nothing when it is already up and turns a half-finished seed
+    // into a clean refusal when it is not.
+    if (EMULATOR && !DRY) await waitForAuthEmulator({ quiet: false });
+
     if (WIPE && !DRY) await wipe();
     else if (!DRY) await assertEmpty();
 
@@ -502,7 +510,7 @@ async function main() {
     if (EMULATOR) {
         console.log('\nCreating Auth accounts…');
         authCount = await seedAuth({ quiet: true });
-        console.log(`  ${authCount} logins (password: ${DEMO_PASSWORD})`);
+        console.log(`  ${authCount} logins (password: ${DEMO_PASSWORD}), sign-in verified`);
     } else {
         console.log('\nSkipping Auth accounts — real project. See scripts/seed-auth.mjs.');
     }
@@ -553,12 +561,20 @@ Logins (password: ${DEMO_PASSWORD}) — the Auth UID is the users/ document ID:
 `);
 }
 
+// Close the Firestore client, then let the loop drain rather than calling
+// process.exit(). Same reasoning as the tail of verify.mjs: terminate() is what
+// stops the SDK holding the process open, and exiting hard while it and the
+// Auth fetches are still closing aborts inside libuv on Windows after the seed
+// has already succeeded — which dev-reset.mjs would read as a failed seed.
+const shutdown = () => terminate(db).catch(() => {});
+
 main()
-    .then(() => process.exit(0))
-    .catch(err => {
+    .then(async () => { await shutdown(); process.exitCode = 0; })
+    .catch(async (err) => {
         console.error('\nSeed failed:', err.message);
         if (err.code === 'permission-denied') {
             console.error('Firestore rules are rejecting the write. Step 1 of the migration order\nexpects development rules while seeding.');
         }
-        process.exit(1);
+        await shutdown();
+        process.exitCode = 1;
     });

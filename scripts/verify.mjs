@@ -12,7 +12,7 @@
  */
 
 import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, getDocs, connectFirestoreEmulator } from 'firebase/firestore';
+import { getFirestore, collection, getDocs, connectFirestoreEmulator, terminate } from 'firebase/firestore';
 
 const EMULATOR = process.argv.includes('--emulator');
 const db = getFirestore(initializeApp({ projectId: 'agrivision-erp', apiKey: 'x', appId: 'x' }));
@@ -219,8 +219,72 @@ check('a sale line snapshot matches the product it was taken from',
         return p && i.safetySnapshot.whoClass === p.whoClass;
     }));
 
+
+// ── Logins ────────────────────────────────────────────────────────────────
+//
+// dev-reset.mjs runs this script, so a database that cannot be signed in to now
+// fails the command that produced it. It used to be possible to finish
+// `npm run dev:reset` with all 285 documents in place and no Auth accounts at
+// all, and nothing said so until the login screen did.
+//
+// Emulator only: reading and creating accounts by UID is an admin operation,
+// and against the real project the accounts are made in the Console.
+if (EMULATOR) {
+    console.log('\nLogins');
+    const { fetchAuthAccounts, signInCheck } = await import('./seed-auth.mjs');
+    try {
+        const accounts = await fetchAuthAccounts();
+        const byUid = new Map(accounts.map(a => [a.localId, a]));
+
+        check('an Auth account exists for every users/ profile',
+            data.users.every(u => byUid.has(u.id)),
+            `${accounts.length} accounts, ${data.users.length} profiles`);
+
+        // The UID has to BE the users/ document id — firestore.rules reads the
+        // caller's role from users/{request.auth.uid}, and sales.officerId is
+        // compared against it. A mismatch logs in and then shows nothing.
+        const missing = data.users.filter(u => !byUid.has(u.id)).map(u => u.id);
+        check('no profile is left without a login', missing.length === 0, missing.join(', '));
+
+        const emailMismatch = data.users.filter(u => byUid.get(u.id) && byUid.get(u.id).email !== u.email);
+        check('each account carries its profile email', emailMismatch.length === 0,
+            emailMismatch.map(u => u.id).join(', '));
+
+        // The only check that proves a person can get in.
+        const admin = data.users.find(u => u.role === 'Super Admin');
+        const officer = data.users.find(u => u.role === 'Sales Officer');
+        for (const u of [admin, officer].filter(Boolean)) {
+            try {
+                const uid = await signInCheck(u.email);
+                check(`${u.role} can sign in`, uid === u.id, `${u.email} → ${uid}`);
+            } catch (err) {
+                check(`${u.role} can sign in`, false, err.message);
+            }
+        }
+    } catch (err) {
+        check('Auth emulator is reachable', false, err.message);
+    }
+}
+
 // ── Result ────────────────────────────────────────────────────────────────
 console.log(failures === 0
     ? `\nAll checks passed. ${total} documents.\n`
     : `\n${failures} CHECK(S) FAILED.\n`);
-process.exit(failures ? 1 : 0);
+
+// Shut down cleanly. Both halves of this are load-bearing, and the combination
+// was arrived at by measurement:
+//
+//   · terminate(db) closes the Firestore client. Without it the SDK keeps the
+//     event loop alive and this script takes 61 seconds to exit instead of one.
+//   · process.exitCode, not process.exit(). Killing the process while the
+//     Firestore transport and fetch's keep-alive sockets are still closing
+//     aborts inside libuv on Windows — "Assertion failed:
+//     !(handle->flags & UV_HANDLE_CLOSING)", exit code 0xC0000409 — AFTER every
+//     check has printed PASS. dev-reset.mjs reads the exit code, so a clean run
+//     reported itself as a failure and tore the emulator down.
+//
+// Setting the code and letting the loop drain makes the exit status mean what
+// it says. This only started to matter when the Logins checks below added the
+// first fetch() calls to this script.
+await terminate(db).catch(() => {});
+process.exitCode = failures ? 1 : 0;
