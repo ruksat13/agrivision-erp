@@ -125,7 +125,10 @@ Firestore collections without settling them migrates the confusion into the data
 - `src/pages/Employee.js:44-92` (Employee Target) — no form assigns a target; values are read from
   `initialEmployees[].target`
 - StockReport, CentralStockReport, CustomerLedger, SupplierLedger, EmployeeAccount — correctly have
-  no add path as reports, **but nothing feeds them either** (see §4)
+  no add path as reports. ~~**but nothing feeds them either**~~ **StockReport and
+  CentralStockReport are fed as of 19 August** — both read `stock_movements` through the stock
+  service, so a sale, a purchase or a repacking run moves them. The three ledgers still are not
+  (see §4)
 - The 40 Reports routes — correctly have no add path
 
 **Total: 14 (dead Save) + 5 (no form) + 6 (wrong shape) ≈ 25 screens with no working data entry.**
@@ -163,9 +166,14 @@ One root cause: **every page owns a hardcoded `const` array and there is no shar
 - ~~`src/pages/Sales.js:342` — `moveTo()` only changes a status; selling does not reduce stock~~
   **Resolved for new orders:** `createSale()` writes a `sale` movement in the same batch as the
   invoice. The old status workflow on `Sales.js` still only changes a status
-- `src/pages/StockReport.js:22-38` — stock values are hardcoded **strings** (`'917'`, `'7927'`,
-  `'912/24\n38'`), not computed numbers. `stockReport()` in `src/services/stock.js` computes the
-  real figures from the ledger; the screen does not read it yet
+- ~~`src/pages/StockReport.js:22-38` — stock values are hardcoded **strings** (`'917'`, `'7927'`,
+  `'912/24\n38'`), not computed numbers~~ **Resolved 19 August.** `StockReport.js` calls `stockReport()` and
+  `CentralStockReport.js` calls `centralStockReport()`. Both had been written in
+  `src/services/stock.js` and neither had a caller. Verified against the emulator under the real
+  rules: selling 100 of `AI-000730` at Head Office took the figure from 2,500 to 2,400 and put 100
+  in the Sell column. The **Booked** column was dropped — nothing produces it and nothing can,
+  because `createSale()` writes the stock movement when the invoice is raised, so there is no
+  quantity that is ordered but not yet out of stock
 - ~~`src/pages/Product.js:4` — a second, unrelated `stock` field on the product master~~
   **Resolved** — products carry no stock field; stock is the sum of `stock_movements`
 - ~~Purchase, Repacking, Damage, SalesReturn and PurchaseReturn never touch stock either~~
@@ -182,16 +190,20 @@ One root cause: **every page owns a hardcoded `const` array and there is no shar
 > `category` field World 1 had, per decision D1 in `FIRESTORE-SCHEMA.md` §3; the seeded
 > catalogue is 24 products under the `AI-000xxx` codes.
 >
-> **Customers and employees are still split.** `Customer.js` continues to hold its own
-> five-row array while the seeded `customers` collection holds 30 dealers under
-> `AIC-xxxxxx`, and the three employee lists remain three lists. `Customer.js` needs the
-> same treatment `Product.js` just had — it is the same change, and the pattern to copy
-> is now in the tree.
+> **Customers: RESOLVED, 19 August 2026.** `Customer.js` reads `listCustomers()` — the 30
+> dealers under `AIC-xxxxxx`, scoped by `actorScope()`, so an Area Manager and a Sales
+> Officer each get their own and neither gets a permission error. The five-row array of
+> `Mr. Rahim Uddin` and `ABC Agency` is gone, Delete is now a soft delete, and each row
+> carries the dealer's licence status read from `licences` — read-only; no screen creates
+> or edits a licence.
+>
+> **Employees are still split** — the three lists in `Employee.js`, `HR.js` and
+> `EmployeeAccount.js` remain three lists. Same change, same pattern.
 
 | | World 1 — the master pages | World 2 — ~15 transaction pages |
 |---|---|---|
 | Products | ~~`Urea Fertilizer`, `DAP`, `Imidacloprid` — 5 items, `SKU-T100`~~ **resolved — reads Firestore** | `Smartzeb 80 Wp`, `Agri Zink 1KG`, `Tetop 100 ml` — `AI-000xxx` |
-| Customers | `Mr. Rahim Uddin`, `ABC Agency` — 5 items (`Customer.js:3`) | `M/s- Nijhum Traders [AIC-000791]` (`Sales.js:179`, `CustomerLedger.js:7`) |
+| Customers | ~~`Mr. Rahim Uddin`, `ABC Agency` — 5 items (`Customer.js:3`)~~ **resolved — reads Firestore** | `M/s- Nijhum Traders [AIC-000791]` (`Sales.js:179`, `CustomerLedger.js:7`) |
 | Employees | 5 people (`Employee.js:3`) | 4 in HR (`HR.js:10`), 10 in Employee Account (`EmployeeAccount.js:11`) — three different lists |
 
 **Almost no dropdown reads from a master.** The order screen's product and dealer
@@ -236,9 +248,16 @@ still a hardcoded string array: `Purchase.js:48-49`, `Batch.js:23-24`,
 
 ### 4.5 Filters present in the UI that do nothing
 
-- `src/pages/StockReport.js:54-60` — Brand, Category, Type and Office selects exist; the filter reads
+- ~~`src/pages/StockReport.js:54-60` — Brand, Category, Type and Office selects exist; the filter reads
   only `query`. The product rows carry no `brand` or `category` field, so these cannot be made to work
-  without a schema change
+  without a schema change~~ **Resolved 19 August.** The schema change happened: `products` carries
+  `category`, `type` and `brandId` (§4.1) and `stock_movements` carries `officeId` (§4.6), so all four
+  filter now. **Office** re-runs the query — `stockReport({ officeId })` filters in Firestore, and no
+  office selected sums every office; the other three narrow the rows already read, joined to the
+  catalogue on the product code. Brand options come from the distinct `brandId` values in the
+  catalogue rather than a second hardcoded list: `brands` was never migrated (§4.4), so the products
+  are the only record of which brands exist — and `Rainbow`, `Canary` and `Sufola` were never among
+  them
 - `src/pages/Reports.js:99-101` — `fromDate` and `toDate` are never read; the Filter button has no
   `onClick` (`:136`). **The date filter is decorative on all 40 reports**
 - ~~`src/pages/Sales.js:306-310` — date, status, discount and office are never applied; only `search` is~~
@@ -246,8 +265,9 @@ still a hardcoded string array: `Purchase.js:48-49`, `Batch.js:23-24`,
   filter, so the redundant select was dropped rather than wired twice
 - `src/pages/SalesReturn.js:316` — Go is `onClick={() => {}}`
 - `src/pages/SupplierPurchase.js:147`, `src/pages/CashCollection.js:371` — Go has no `onClick`
-- `src/pages/StockReport.js:89` export, `src/pages/CustomerLedger.js:206` and
-  `src/pages/SupplierLedger.js:80` print — all dead
+- ~~`src/pages/StockReport.js:89` export~~ **removed 19 August** rather than left dead on screen;
+  the print button beside it works. `src/pages/CustomerLedger.js:206` and
+  `src/pages/SupplierLedger.js:80` print — still dead
 
 **Effort:** unify master data and repoint every dropdown **2 d** · stock ledger **2.5 d** ·
 customer ledger from real data **1.5 d** · connect Cancel Sales to Sales **1 d** · make detail screens
@@ -397,15 +417,16 @@ The resulting data model is specified in `FIRESTORE-SCHEMA.md`.
 
 ## 8. Progress against this audit
 
-Updated 15 August 2026. Findings above are struck through where they no longer hold.
+Updated 19 August 2026. Findings above are struck through where they no longer hold.
 
 | Finding | State |
 |---|---|
 | §2.2 — no sales order entry (`Sales.js:429`) | **Resolved.** `SalesEntry.js`, reached from that button |
 | §3 items 3, 4 — `Inventory.js`, `Accounts.js` orphaned | **Resolved.** Deleted, 334 lines |
-| §4.1 — selling does not reduce stock | **Resolved for orders raised on the new screen.** `createSale()` writes the movement in the same batch. Stock Report still renders its hardcoded strings |
+| §4.1 — selling does not reduce stock | **RESOLVED, 19 August — both halves.** `createSale()` writes the movement in the same batch, and Stock Report and Central Stock read it back through `stockReport()` and `centralStockReport()` instead of rendering hardcoded strings |
 | §4.2 — two worlds of *product* master data | **Resolved.** `Product.js` reads Firestore; the `SKU-T100` array is gone |
-| §4.2 — two worlds of *customer* and *employee* data | Outstanding. Same change, same pattern |
+| §4.2 — two worlds of *customer* data | **Resolved 19 August.** `Customer.js` reads `listCustomers()` under `actorScope()`; the five-row array is gone, and each row shows the dealer's licence status |
+| §4.2 — two worlds of *employee* data | Outstanding. Same change, same pattern |
 | §2.1 — 14 dead Save buttons | **RESOLVED, 16 August — all 14.** A: ExpenseHead, BankAccount, Offers, ProductDemand. B: SupplierOpeningBalance, SupplierPayment, SupplierCommission, preceded by the `suppliers` master they all needed. C: CustomerOpeningBalance, CustomerCommission, Expense. D: Purchase, PurchaseReturn, Batch (as Bill of Materials), Repacking. Each was checked against the emulator one at a time: the row appears, it is still there after a browser refresh, and where a balance or a stock figure is involved it moved with it. `Product.js` is **not** one of the 14 — its Save already worked, it just wrote to local state; it is the pattern that was copied |
 | §2.1.1 — every screen needs its own collection first | Confirmed by doing it. **Sixteen Tier 2 collections** were specified in `FIRESTORE-SCHEMA.md` §10 and then built: `expense_heads`, `bank_accounts`, `offers`, `product_demands`, `suppliers`, `opening_balances`, `supplier_payments`, `commissions`, `expenses`, `purchases`, `purchase_items`, `purchase_returns`, `boms`, `repackings`. Nothing was wired to local `setState` first, so no handler was written twice |
 | §5.2 — one component, several routes | Extended. `OpeningBalance.js` and `Commission.js` each serve a customer route and a supplier route from a `party` prop, the way `Categories.js` serves five. Four page files became two components plus four one-line wrappers |

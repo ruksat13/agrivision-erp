@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { complianceReport, formatDate } from '../services';
 import { Notice, useCollection } from '../components/Notice';
+import { LICENCE_BAND, bandOf } from '../components/LicenceBadge';
 
 // Step 7 of the demo script in docs/INTERNAL-PLAN.md §7, and part 6 of
 // Feature 1 in docs/UNIQUE-FEATURES.md §5. Both queries already existed in
@@ -24,24 +25,14 @@ const mono = { fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monos
 /**
  * The bands, worst first. `licenceStatus()` produces exactly these strings, so
  * the table and the rule engine cannot drift apart on what "expiring" means.
+ *
+ * The palette itself is in src/components/LicenceBadge.js — the customer master
+ * paints the same bands now, and one concept should not have two colour maps.
  */
-// 'No licence' sits above Expired on purpose. A dealer with a lapsed licence at
-// least had one and can renew it; a dealer with nothing on record has never
-// been checked, and the sale rule can only refuse what it can see.
-const BAND = {
-    'No licence': { row: '#f6eaf7', border: '#8b1a89', bg: '#e7d3ea', fg: '#5b0b59', rank: -1 },
-    'Expired': { row: '#fdf2f2', border: '#dc3545', bg: '#f8d7da', fg: '#721c24', rank: 0 },
-    'Expiring (7)': { row: '#fff6ef', border: '#fd7e14', bg: '#ffe5d0', fg: '#7a3e00', rank: 1 },
-    'Expiring (30)': { row: '#fffdf3', border: '#ffc107', bg: '#fff3cd', fg: '#856404', rank: 2 },
-    'Expiring (60)': { row: '#fffef8', border: '#ffe082', bg: '#fff8e1', fg: '#8a6d3b', rank: 3 },
-    'Active': { row: null, border: 'transparent', bg: '#d4edda', fg: '#155724', rank: 4 },
-    'Unknown': { row: null, border: 'transparent', bg: '#e9ecef', fg: '#495057', rank: 5 },
-};
+const BAND = LICENCE_BAND;
 
 /** Money as the rest of the app prints it. */
 const taka = (n) => `৳ ${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
-const bandOf = (status) => BAND[status] || BAND.Unknown;
 
 /** "15 days ago" reads better than "-15" in a column somebody has to act on. */
 function daysLabel(days) {

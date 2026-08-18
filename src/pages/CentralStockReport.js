@@ -1,57 +1,115 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
+import { centralStockReport, listProducts, OFFICE, officeLabel, PRODUCT_CATEGORY } from '../services';
+import { Notice, useCollection } from '../components/Notice';
+
+// Central stock: one row per product, one column pair per office.
+//
+// This screen does NOT share a component with StockReport.js — it never did.
+// The two render different tables from the same ledger: Stock Report breaks one
+// office down by movement type, Central Stock breaks every product across the
+// offices. They are handled consistently in the sense that matters, which is
+// that neither holds figures any more: centralStockReport() in
+// src/services/stock.js was written alongside stockReport(), had no caller
+// either, and this screen now uses it.
+//
+// ── What the columns are made of ──────────────────────────────────────────
+// The service returns a quantity per office and a total. Everything else is
+// joined from the catalogue on the product code:
+//
+//   Price          products.mrp
+//   Crtn / PCS     the quantity divided by products.cartonQty — schema §4.1
+//                  says outright that "Central Stock's Crtn, PCS is derived
+//                  from this"
+//   Amount         the quantity at the MRP, in pieces, not cartons
+//
+// ── The grouping ──────────────────────────────────────────────────────────
+// The hardcoded version grouped by product family ('Green Charge 4CPA',
+// 'Memory Plus 32.5SC'). There is no family field in the schema and inventing
+// one by parsing product names would be a guess that breaks on the first
+// product named differently. Rows are grouped by `category` instead, which is a
+// real required field and the one Feature 1 already gates on. A product with no
+// catalogue row behind it — a movement written against something since removed
+// — groups under 'Uncategorised' rather than disappearing.
 
 const thS = { padding: '10px', color: 'white', fontWeight: '700', fontSize: '13px', textAlign: 'center', whiteSpace: 'nowrap', border: '1px solid #2d3a5a' };
 const tdS = { padding: '9px 10px', fontSize: '13px', color: '#333', border: '1px solid #e6ebf0', textAlign: 'right', whiteSpace: 'nowrap' };
 
-// grouped products: each group renders with a rowSpan cell for the group name
-const groups = [
-    {
-        group: 'Green Charge 4CPA',
-        rows: [
-            { unit: '100 Ml x 24', code: 'AI-000051', price: '75.00', head: '1759 Crtn, 21 PCS', headAmt: '3,167,775.00', jes: '170 Crtn, 20 PCS', jesAmt: '307,500.00', jam: '163 Crtn', jamAmt: '293,400.00', tot: '2092 Crtn , 41 PCS', totAmt: '3,768,675.00' },
-            { unit: '500 Ml x 10', code: 'AI-000050', price: '271.00', head: '1930 Crtn, 9 PCS', headAmt: '5,232,739.00', jes: '389 Crtn, 3 PCS', jesAmt: '1,055,003.00', jam: '252 Crtn, 9 PCS', jamAmt: '685,359.00', tot: '2571 Crtn , 21 PCS', totAmt: '6,973,101.00' },
-            { unit: '1 Ltr x 6', code: 'AI-000049', price: '463.00', head: '2182 Crtn, 2 PCS', headAmt: '6,062,522.00', jes: '172 Crtn', jesAmt: '477,816.00', jam: '310 Crtn', jamAmt: '861,180.00', tot: '2664 Crtn , 2 PCS', totAmt: '7,401,518.00' },
-            { unit: '5 Ltr x 1', code: 'AI-000048', price: '2145.00', head: '1614 Crtn', headAmt: '3,462,030.00', jes: '195 Crtn', jesAmt: '418,275.00', jam: '74 Crtn', jamAmt: '158,730.00', tot: '1883 Crtn', totAmt: '4,039,035.00' },
-        ],
-    },
-    {
-        group: 'Memory Plus 32.5SC',
-        rows: [
-            { unit: '50 Ml x 24', code: 'AI-000055', price: '175.00', head: '647 Crtn, 18 PCS', headAmt: '2,720,550.00', jes: '47 Crtn, 17 PCS', jesAmt: '200,375.00', jam: '49 Crtn', jamAmt: '205,800.00', tot: '743 Crtn , 35 PCS', totAmt: '3,126,725.00' },
-            { unit: '100 Ml x 24', code: 'AI-000054', price: '320.00', head: '910 Crtn, 10 PCS', headAmt: '6,992,000.00', jes: '54 Crtn', jesAmt: '414,720.00', jam: '57 Crtn', jamAmt: '437,760.00', tot: '1021 Crtn , 10 PCS', totAmt: '7,844,480.00' },
-            { unit: '400 Ml x 9', code: 'AI-000053', price: '1250.00', head: '334 Crtn, 8 PCS', headAmt: '3,767,500.00', jes: '16 Crtn, 6 PCS', jesAmt: '187,500.00', jam: '32 Crtn, 6 PCS', jamAmt: '367,500.00', tot: '382 Crtn , 20 PCS', totAmt: '4,322,500.00' },
-            { unit: '500 Ml x 10', code: 'AI-000052', price: '1525.00', head: '293 Crtn, 5 PCS', headAmt: '4,475,875.00', jes: '32 Crtn', jesAmt: '488,000.00', jam: '10 Crtn', jamAmt: '152,500.00', tot: '335 Crtn , 5 PCS', totAmt: '5,116,375.00' },
-            { unit: '1 Ltr x 6', code: 'AI-000676', price: '2850.00', head: '92 Crtn', headAmt: '1,573,200.00', jes: '5 Crtn', jesAmt: '85,500.00', jam: '1 Crtn', jamAmt: '17,100.00', tot: '98 Crtn', totAmt: '1,675,800.00' },
-        ],
-    },
-    {
-        group: 'Pahar 80WDG',
-        rows: [
-            { unit: '2 Gm x 100', code: 'AI-000468', price: '21.00', head: '164 Crtn, 50 PCS', headAmt: '345,450.00', jes: '135 Crtn', jesAmt: '283,500.00', jam: '11 Crtn', jamAmt: '23,100.00', tot: '310 Crtn , 50 PCS', totAmt: '652,050.00' },
-            { unit: '10 Gm x 40', code: 'AI-000074', price: '82.00', head: '833 Crtn, 4 PCS', headAmt: '2,732,568.00', jes: '40 Crtn', jesAmt: '131,200.00', jam: '24 Crtn', jamAmt: '78,720.00', tot: '897 Crtn , 4 PCS', totAmt: '2,942,488.00' },
-            { unit: '25 Gm x 20', code: 'AI-000073', price: '190.00', head: '1068 Crtn, 7 PCS', headAmt: '4,059,730.00', jes: '28 Crtn', jesAmt: '106,400.00', jam: '247 Crtn', jamAmt: '938,600.00', tot: '1343 Crtn , 7 PCS', totAmt: '5,104,730.00' },
-            { unit: '50 Gm x 24', code: 'AI-000072', price: '360.00', head: '333 Crtn, 19 PCS', headAmt: '2,883,960.00', jes: '18 Crtn, 23 PCS', jesAmt: '163,800.00', jam: '54 Crtn', jamAmt: '466,560.00', tot: '405 Crtn , 42 PCS', totAmt: '3,514,320.00' },
-            { unit: '100 Gm x 24', code: 'AI-000071', price: '672.00', head: '501 Crtn, 2 PCS', headAmt: '8,081,472.00', jes: '58 Crtn, 21 PCS', jesAmt: '949,536.00', jam: '21 Crtn', jamAmt: '338,688.00', tot: '580 Crtn , 23 PCS', totAmt: '9,369,696.00' },
-        ],
-    },
-];
+const money = (n) => Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+/**
+ * "1759 Crtn, 21 PCS" — the notation this screen has always printed. A product
+ * packed one to a carton is just a piece count; saying "630 Crtn" of something
+ * that has no carton would be worse than saying nothing.
+ */
+function cartons(qty, cartonQty) {
+    const n = Number(qty || 0);
+    const per = Number(cartonQty || 1);
+    if (!n) return '';
+    if (per <= 1) return `${n.toLocaleString('en-US')} PCS`;
+    const whole = Math.trunc(n / per);
+    const rest = n % per;
+    if (!whole) return `${rest} PCS`;
+    return `${whole.toLocaleString('en-US')} Crtn${rest ? `, ${rest} PCS` : ''}`;
+}
+
+// The catalogue order, then anything the catalogue does not know about.
+const groupRank = (category) => {
+    const i = PRODUCT_CATEGORY.indexOf(category);
+    return i === -1 ? PRODUCT_CATEGORY.length : i;
+};
 
 function CentralStockReport() {
     const [draft, setDraft] = useState('');
     const [applied, setApplied] = useState('');
 
+    const load = useCallback(async () => {
+        const [rows, products] = await Promise.all([
+            centralStockReport(),
+            listProducts({ status: null }),
+        ]);
+        const byCode = new Map(products.map(p => [p.code, p]));
+        return rows.map(r => {
+            const product = byCode.get(r.productId) || null;
+            return {
+                ...r,
+                product,
+                category: product?.category || 'Uncategorised',
+                cartonQty: Number(product?.cartonQty || 1),
+                price: Number(product?.mrp || 0),
+                packSize: product?.packSize || '',
+            };
+        });
+    }, []);
+
+    const { rows, loading, error } = useCollection(load, { what: 'central stock' });
+
     const handleGo = () => setApplied(draft);
     const handleClear = () => { setDraft(''); setApplied(''); };
 
-    const filteredGroups = groups
-        .map(g => {
-            if (!applied) return g;
-            const k = applied.toLowerCase();
-            if (g.group.toLowerCase().includes(k)) return g;
-            const rows = g.rows.filter(r => r.code.toLowerCase().includes(k) || r.unit.toLowerCase().includes(k));
-            return rows.length ? { ...g, rows } : null;
-        })
-        .filter(Boolean);
+    const groups = useMemo(() => {
+        const k = applied.toLowerCase();
+        const matched = k
+            ? rows.filter(r =>
+                (r.productName || '').toLowerCase().includes(k)
+                || (r.productCode || '').toLowerCase().includes(k)
+                || (r.packSize || '').toLowerCase().includes(k)
+                || r.category.toLowerCase().includes(k))
+            : rows;
+
+        const byCategory = new Map();
+        matched.forEach(r => {
+            if (!byCategory.has(r.category)) byCategory.set(r.category, []);
+            byCategory.get(r.category).push(r);
+        });
+
+        return [...byCategory.entries()]
+            .map(([group, list]) => ({ group, rows: list }))
+            .sort((a, b) => groupRank(a.group) - groupRank(b.group) || a.group.localeCompare(b.group));
+    }, [rows, applied]);
+
+    const grandTotal = groups.reduce(
+        (sum, g) => sum + g.rows.reduce((s, r) => s + r.total * r.price, 0), 0,
+    );
 
     let sl = 0;
 
@@ -62,12 +120,19 @@ function CentralStockReport() {
                 <div style={{ fontSize: '13px', color: '#6c757d', marginTop: '2px' }}>Detailed product stock record</div>
             </div>
 
+            {loading && <Notice tone="info">Loading central stock…</Notice>}
+            {error && <Notice tone="warn">{error}</Notice>}
+
             <div style={{ background: '#f0f9ff', padding: '14px 16px', borderRadius: '5px', display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '18px' }}>
-                <input placeholder="Product name or code" value={draft} onChange={e => setDraft(e.target.value)}
-                    style={{ padding: '9px 12px', border: '1px solid #ced4da', borderRadius: '5px', fontSize: '13px', width: '230px' }} />
+                <input placeholder="Product name, code or category" value={draft} onChange={e => setDraft(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleGo()}
+                    style={{ padding: '9px 12px', border: '1px solid #ced4da', borderRadius: '5px', fontSize: '13px', width: '260px' }} />
                 <button onClick={handleGo} style={{ padding: '9px 20px', background: '#1e7e34', color: 'white', border: 'none', borderRadius: '5px', fontSize: '14px', cursor: 'pointer' }}>🔍 Go</button>
                 <button onClick={handleClear} style={{ padding: '9px 20px', background: '#dc3545', color: 'white', border: 'none', borderRadius: '5px', fontSize: '14px', cursor: 'pointer' }}>✕ Clear</button>
                 <button onClick={() => window.print()} style={{ padding: '9px 14px', background: '#1e7e34', color: 'white', border: 'none', borderRadius: '5px', fontSize: '14px', cursor: 'pointer' }}>🖨️</button>
+                <div style={{ marginLeft: 'auto', fontSize: 13, color: '#495057' }}>
+                    Stock at MRP: <b>৳ {money(grandTotal)}</b>
+                </div>
             </div>
 
             <div style={{ overflowX: 'auto' }}>
@@ -75,29 +140,31 @@ function CentralStockReport() {
                     <thead>
                         <tr style={{ background: '#1a2035' }}>
                             <th style={{ ...thS, width: '45px' }} rowSpan={2}>SL</th>
-                            <th style={{ ...thS, textAlign: 'left' }} rowSpan={2}>Group / Product Name</th>
+                            <th style={{ ...thS, textAlign: 'left' }} rowSpan={2}>Category / Product Name</th>
                             <th style={thS} rowSpan={2}>Unit &amp; Pack</th>
                             <th style={thS} rowSpan={2}>Price</th>
-                            <th style={thS} colSpan={2}>Head Office</th>
-                            <th style={thS} colSpan={2}>Jessore Office</th>
-                            <th style={thS} colSpan={2}>Jamalpur Office</th>
+                            {OFFICE.map(o => <th key={o} style={thS} colSpan={2}>{officeLabel(o)}</th>)}
                             <th style={thS} colSpan={2}>Total</th>
                         </tr>
                         <tr style={{ background: '#1a2035' }}>
-                            <th style={thS}>Crtn</th><th style={thS}>Amount</th>
-                            <th style={thS}>Crtn</th><th style={thS}>Amount</th>
-                            <th style={thS}>Crtn</th><th style={thS}>Amount</th>
+                            {OFFICE.map(o => (
+                                <React.Fragment key={o}>
+                                    <th style={thS}>Crtn</th><th style={thS}>Amount</th>
+                                </React.Fragment>
+                            ))}
                             <th style={thS}>Crtn</th><th style={thS}>Amount</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {filteredGroups.length === 0 ? (
-                            <tr><td colSpan={12} style={{ ...tdS, textAlign: 'center', padding: '30px', color: '#adb5bd' }}>No data found</td></tr>
-                        ) : filteredGroups.map(g => (
+                        {groups.length === 0 ? (
+                            <tr><td colSpan={6 + OFFICE.length * 2} style={{ ...tdS, textAlign: 'center', padding: '30px', color: '#adb5bd' }}>
+                                {loading ? 'Loading…' : 'No data found'}
+                            </td></tr>
+                        ) : groups.map(g => (
                             g.rows.map((r, ri) => {
                                 sl += 1;
                                 return (
-                                    <tr key={g.group + r.code} style={{ background: sl % 2 === 0 ? '#f8fbfd' : 'white' }}>
+                                    <tr key={r.productId} style={{ background: sl % 2 === 0 ? '#f8fbfd' : 'white' }}>
                                         <td style={{ ...tdS, textAlign: 'center' }}>{sl}</td>
                                         {ri === 0 && (
                                             <td style={{ ...tdS, textAlign: 'left', fontWeight: '600', verticalAlign: 'middle', background: 'white' }} rowSpan={g.rows.length}>
@@ -105,18 +172,20 @@ function CentralStockReport() {
                                             </td>
                                         )}
                                         <td style={{ ...tdS, textAlign: 'left' }}>
-                                            <div>{r.unit}</div>
-                                            <div style={{ fontSize: '11px', color: '#6c757d' }}>{r.code}</div>
+                                            <div>{r.productName}</div>
+                                            <div style={{ fontSize: '11px', color: '#6c757d' }}>
+                                                {r.packSize && `${r.packSize} · `}{r.productCode}
+                                            </div>
                                         </td>
-                                        <td style={tdS}>{r.price}</td>
-                                        <td style={tdS}>{r.head}</td>
-                                        <td style={tdS}>{r.headAmt}</td>
-                                        <td style={tdS}>{r.jes}</td>
-                                        <td style={tdS}>{r.jesAmt}</td>
-                                        <td style={tdS}>{r.jam}</td>
-                                        <td style={tdS}>{r.jamAmt}</td>
-                                        <td style={tdS}>{r.tot}</td>
-                                        <td style={tdS}>{r.totAmt}</td>
+                                        <td style={tdS}>{r.price ? money(r.price) : ''}</td>
+                                        {OFFICE.map(o => (
+                                            <React.Fragment key={o}>
+                                                <td style={tdS}>{cartons(r[o], r.cartonQty)}</td>
+                                                <td style={tdS}>{r[o] ? money(r[o] * r.price) : ''}</td>
+                                            </React.Fragment>
+                                        ))}
+                                        <td style={{ ...tdS, fontWeight: 700 }}>{cartons(r.total, r.cartonQty)}</td>
+                                        <td style={{ ...tdS, fontWeight: 700 }}>{r.total ? money(r.total * r.price) : ''}</td>
                                     </tr>
                                 );
                             })
@@ -124,6 +193,13 @@ function CentralStockReport() {
                     </tbody>
                 </table>
             </div>
+
+            <p style={{ fontSize: 12, color: '#6c757d', marginTop: 14, lineHeight: 1.6 }}>
+                Quantities are summed from <code>stock_movements</code> per office at read time, so a
+                sale raised against one office lowers that office's column and the total, and leaves
+                the other two alone. <b>Crtn</b> is the quantity divided by the product's carton size;{' '}
+                <b>Amount</b> values the pieces at MRP, not the cartons.
+            </p>
         </div>
     );
 }
