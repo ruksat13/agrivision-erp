@@ -1,53 +1,48 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { db } from '../firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { officeLabel } from '../services';
+
+// The top bar, given the same treatment as the Dashboard tiles: keep the
+// structure, remove the fiction.
+//
+//   REMOVED  the "৳ 82,000 / Cash" chip. Nothing in this system stores a cash
+//            position. `bank_accounts` carries name, number, bank, branch and
+//            status and no balance field (schema §10), and the collection that
+//            would hold takings, `collections`, does not exist —
+//            /cash-collection is still a sample-data screen. A navbar chip has
+//            no room for a "not yet connected" caption, so it goes rather than
+//            being blanked (CLAUDE.md §7).
+//   BLANKED  the notification bell. There is no `notifications` collection and
+//            no screen that writes one, but a bell is a real thing this app will
+//            want, so the control stays and the panel says what is missing. The
+//            badge count went with the list: "2 unread" of five invented
+//            messages, one of which named "Mr. Rahim", a dealer who has never
+//            been in the database.
+//   WIRED    the office. users/{uid}.officeId is a real field, seeded as 'head'
+//            for every account, and officeLabel() turns it into the long form.
+//            It reads the signed-in user now instead of saying "Head Office" to
+//            everyone. It is a label rather than a button: it never had an
+//            onClick, and there is no office-switching feature behind it.
+//
+// The direct getDoc on users/ went too. CLAUDE.md lists this file and Profile.js
+// as the two places that bypass the service layer; this half of it was dead
+// code anyway, because AuthContext.shapeUser() always sets `name` before the
+// session exists.
 
 function Navbar({ onToggleSidebar }) {
     const { currentUser, logout } = useAuth();
     const navigate = useNavigate();
     const [showDropdown, setShowDropdown] = useState(false);
     const [showNotifications, setShowNotifications] = useState(false);
-    const [userName, setUserName] = useState('');
-
-    const notifications = [
-        { id: 1, text: 'Invoice AINV-001 payment due', time: '10 mins ago', unread: true },
-        { id: 2, text: 'New order received from Mr. Rahim', time: '1 hr ago', unread: true },
-        { id: 3, text: 'Supplier payment pending', time: '3 hrs ago', unread: false },
-        { id: 4, text: 'Monthly report ready', time: '1 day ago', unread: false },
-        { id: 5, text: 'Employee salary due', time: '2 days ago', unread: false },
-    ];
-
-    const unreadCount = notifications.filter(n => n.unread).length;
-
-    useEffect(() => {
-        const fetchName = async () => {
-            // local demo users carry their own name
-            if (currentUser?.name) {
-                setUserName(currentUser.name);
-                return;
-            }
-            // firebase users: look up name in Firestore
-            if (currentUser?.uid) {
-                try {
-                    const docRef = doc(db, 'users', currentUser.uid);
-                    const docSnap = await getDoc(docRef);
-                    if (docSnap.exists()) {
-                        setUserName(docSnap.data().name || '');
-                    }
-                } catch (e) { /* ignore */ }
-            }
-        };
-        fetchName();
-    }, [currentUser]);
 
     const handleLogout = async () => {
         await logout();
         navigate('/login');
     };
 
-    const displayName = userName || currentUser?.email?.split('@')[0] || 'User';
+    const displayName = currentUser?.name || currentUser?.email?.split('@')[0] || 'User';
+    const office = officeLabel(currentUser?.officeId);
 
     return (
         <div style={{
@@ -83,19 +78,7 @@ function Navbar({ onToggleSidebar }) {
                     ☰
                 </button>
 
-                {/* Cash Display */}
-                <div style={{
-                    backgroundColor: '#0d6efd',
-                    borderRadius: '6px',
-                    padding: '4px 10px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    lineHeight: 1.2,
-                }}>
-                    <span style={{ fontSize: '11px', color: '#cfe2ff', fontWeight: '600' }}>৳ 82,000</span>
-                    <span style={{ fontSize: '9px', color: '#90b4f5' }}>Cash</span>
-                </div>
+                {/* The cash chip stood here — see the header of this file. */}
 
                 {/* Notification Bell */}
                 <div style={{ position: 'relative' }}>
@@ -116,14 +99,9 @@ function Navbar({ onToggleSidebar }) {
                             position: 'relative',
                         }}>
                         🔔
-                        <span style={{
-                            backgroundColor: 'white',
-                            color: '#dc3545',
-                            borderRadius: '10px',
-                            padding: '1px 5px',
-                            fontSize: '10px',
-                            fontWeight: '700',
-                        }}>{unreadCount}</span>
+                        {/* The badge read "2" — two of five invented messages
+                            marked unread. There is nothing to count, so there
+                            is no badge. */}
                     </button>
 
                     {/* Notification Dropdown */}
@@ -148,28 +126,22 @@ function Navbar({ onToggleSidebar }) {
                                 fontSize: '13px',
                                 color: '#1a2035',
                             }}>
-                                🔔 Notifications ({unreadCount} unread)
+                                🔔 Notifications
                             </div>
-                            {notifications.map(n => (
-                                <div key={n.id} style={{
-                                    padding: '10px 16px',
-                                    borderBottom: '1px solid #f0f2f5',
-                                    backgroundColor: n.unread ? '#f0f7ff' : 'white',
-                                    cursor: 'pointer',
-                                }}>
-                                    <p style={{ margin: 0, fontSize: '12px', color: '#333', fontWeight: n.unread ? '600' : '400' }}>{n.text}</p>
-                                    <p style={{ margin: 0, fontSize: '11px', color: '#adb5bd', marginTop: '2px' }}>{n.time}</p>
+                            <div style={{ padding: '16px', fontSize: '12px', color: '#6c757d', fontStyle: 'italic', lineHeight: 1.6 }}>
+                                — not yet connected. There is no <code>notifications</code> collection
+                                and no screen that writes one, so this panel would have to invent what
+                                it showed.
+                                <div style={{ marginTop: 8, fontStyle: 'normal' }}>
+                                    What is real today is on the{' '}
+                                    <span
+                                        onClick={() => { navigate('/'); setShowNotifications(false); }}
+                                        style={{ color: '#0d6efd', cursor: 'pointer', fontWeight: 600 }}>
+                                        Dashboard
+                                    </span>{' '}
+                                    — the dealer licence expiry panel, which counts licences that have
+                                    lapsed or are about to.
                                 </div>
-                            ))}
-                            <div style={{
-                                padding: '10px 16px',
-                                textAlign: 'center',
-                                fontSize: '12px',
-                                color: '#0d6efd',
-                                cursor: 'pointer',
-                                fontWeight: '600',
-                            }}>
-                                View All Notifications
                             </div>
                         </div>
                     )}
@@ -179,19 +151,22 @@ function Navbar({ onToggleSidebar }) {
             {/* Right — Head Office + User */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
 
-                {/* Head Office Button */}
-                <button style={{
-                    background: '#0d6efd',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '6px',
-                    padding: '6px 14px',
-                    fontSize: '12px',
-                    fontWeight: '600',
-                    cursor: 'pointer',
-                }}>
-                    🏢 Head Office
-                </button>
+                {/* The signed-in user's own office, from users/{uid}.officeId.
+                    A label, not a button: it never had an onClick, and there is
+                    no office-switching feature for one to call. */}
+                <span
+                    title={office ? `Your office — users/{uid}.officeId is "${currentUser?.officeId}"` : 'No office recorded on your profile'}
+                    style={{
+                        background: office ? '#0d6efd' : '#3a4664',
+                        color: office ? 'white' : '#adb5bd',
+                        borderRadius: '6px',
+                        padding: '6px 14px',
+                        fontSize: '12px',
+                        fontWeight: '600',
+                        whiteSpace: 'nowrap',
+                    }}>
+                    🏢 {office || 'No office'}
+                </span>
 
                 {/* User Dropdown */}
                 <div style={{ position: 'relative' }}>
