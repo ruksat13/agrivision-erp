@@ -3,8 +3,9 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import {
     listSales, getSaleWithItems, updateSaleStatus, advanceSale, cancelSale,
     nextStatus, formatDate, officeLabel, officeOptions, actorScope,
-    SALE_STATUS,
+    SALE_STATUS, SALE_UPDATE_ROLES,
 } from '../services';
+import { useAuth } from '../context/AuthContext';
 import { Notice, useCollection, useFlash } from '../components/Notice';
 import { InvoiceSafetySection, SAFETY_PRINT_CSS, PRINT_BODY_FONT } from '../components/SafetyPanel';
 
@@ -307,7 +308,20 @@ function ActionBtn({ bg, children, title, onClick, disabled }) {
 
 function Sales({ type = 'Sales' }) {
     const navigate = useNavigate();
+    const { currentUser, hasAccess } = useAuth();
     const { flash, say, busy, run } = useFlash();
+
+    // Who may change an invoice once it exists. firestore.rules grants `sales`
+    // update to isAdmin() or myArea(), and the screen offered the buttons to
+    // everyone — a Sales Officer clicking "Move to Delivered" on an invoice
+    // they had raised themselves got "PERMISSION_DENIED: evaluation error at
+    // L169:24 for 'update'" printed on the page. The rule is right and this
+    // screen was wrong (CLAUDE.md §6): a hidden button is not a control, but a
+    // button that can only produce an error is not a feature either.
+    //
+    // This gate is convenience. The control is firestore.rules, which refuses
+    // the write for a caller who never went through the screen at all.
+    const mayUpdate = SALE_UPDATE_ROLES.includes(currentUser?.role);
 
     // The Dashboard's Latest Orders panel sends an invoice here rather than
     // dropping you on the register and leaving you to find it. Its View button
@@ -369,7 +383,7 @@ function Sales({ type = 'Sales' }) {
     const pageRows = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
     const isCancelled = activeStatus === 'Cancelled';
-    const showChangeStatus = !isCancelled && activeStatus !== 'Delivered';
+    const showChangeStatus = mayUpdate && !isCancelled && activeStatus !== 'Delivered';
 
     const switchTab = (s) => { setActiveStatus(s); setPage(1); };
 
@@ -422,6 +436,18 @@ function Sales({ type = 'Sales' }) {
             {loading && <Notice tone="info">Loading sales…</Notice>}
             {error && <Notice tone="warn">{error}</Notice>}
             {flash && <Notice tone={flash.tone}>{flash.text}</Notice>}
+
+            {/* Say why the buttons are not there, rather than leaving a role to
+                wonder. The absence is the rule being applied, not a fault. */}
+            {!mayUpdate && !loading && (
+                <Notice tone="info">
+                    <b>Read-only for a {currentUser?.role || 'signed-in user'}.</b>{' '}
+                    Moving an invoice on and cancelling one belong to an Area Manager
+                    — <code>PROJECT-OUTLINE.md</code> §3.4: an officer raises the order and
+                    requests cancellation rather than performing it. You can open, print and
+                    search every invoice you may see{hasAccess('/sales-entry') ? ', and raise a new one' : ''}.
+                </Notice>
+            )}
 
             {/* Status Tabs */}
             <div style={{ ...cardStyle, padding: 0, marginBottom: '16px', overflow: 'hidden' }}>
@@ -482,8 +508,15 @@ function Sales({ type = 'Sales' }) {
                             <th style={{ padding: '12px', textAlign: 'left' }}>Source</th>
                             {showChangeStatus && <th style={{ padding: '12px', textAlign: 'left' }}>Change Status</th>}
                             <th style={{ padding: '12px', textAlign: 'left', whiteSpace: 'nowrap' }}>
-                                Action <button onClick={() => navigate('/sales-entry')} title="Create a new sales order"
-                                    style={{ background: '#28a745', color: 'white', border: 'none', borderRadius: '4px', padding: '2px 8px', fontSize: '11px', cursor: 'pointer', marginLeft: '4px' }}>+ Add</button>
+                                Action
+                                {/* The one control here a Sales Officer DOES hold —
+                                    raising an order is their job. Gated on the page
+                                    permission rather than a role, because it is a link
+                                    and ProtectedRoute is what would refuse it. */}
+                                {hasAccess('/sales-entry') && (
+                                    <button onClick={() => navigate('/sales-entry')} title="Create a new sales order"
+                                        style={{ background: '#28a745', color: 'white', border: 'none', borderRadius: '4px', padding: '2px 8px', fontSize: '11px', cursor: 'pointer', marginLeft: '4px' }}>+ Add</button>
+                                )}
                             </th>
                         </tr>
                     </thead>
@@ -533,10 +566,10 @@ function Sales({ type = 'Sales' }) {
                                 )}
                                 <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>
                                     <ActionBtn bg="#0d6efd" title="View and print the invoice" onClick={() => setViewInvoice(row.invoiceNo)}>ℹ</ActionBtn>
-                                    {!isCancelled && nextStatus(row.status) && (
+                                    {mayUpdate && !isCancelled && nextStatus(row.status) && (
                                         <ActionBtn bg="#28a745" title={`Move to ${nextStatus(row.status)}`} disabled={busy} onClick={() => advance(row)}>✓</ActionBtn>
                                     )}
-                                    {!isCancelled && (
+                                    {mayUpdate && !isCancelled && (
                                         <ActionBtn bg="#dc3545" title="Cancel this invoice" disabled={busy} onClick={() => handleCancel(row)}>🗑</ActionBtn>
                                     )}
                                 </td>

@@ -181,6 +181,31 @@ export const ROLE = [
  */
 export const OVERRIDE_ROLES = ['Super Admin', 'Managing Director', 'Area Manager'];
 
+/**
+ * Who may change an invoice after it exists — advance its status, or cancel it.
+ *
+ * The third list kept in step by hand with firestore.rules, after
+ * OVERRIDE_ROLES and LICENCE_WRITE_ROLES. The rule is the `sales` block:
+ * `allow update: if isAdmin() || myArea(resource.data.areaId)`. An Area Manager
+ * is restricted to their own area there and is not restricted here, because
+ * listSales() is scoped — every row a manager can see is already one the rule
+ * lets them update.
+ *
+ * A Sales Officer raises the order and cannot then move or cancel it:
+ * PROJECT-OUTLINE.md §3.4 makes cancellation a request to their Area Manager.
+ * Sales.js used to offer them the buttons anyway, and clicking one produced
+ * "PERMISSION_DENIED: evaluation error at L169:24 for 'update'" on screen — the
+ * §6 failure where a screen can only produce an error.
+ *
+ * The Accountant reads `sales` and cannot update one, so they are absent too.
+ *
+ * This happens to hold the same three roles as OVERRIDE_ROLES and is a
+ * different decision — waiving a blocking rule and editing a saved invoice are
+ * not the same authority. Kept separate so changing one does not silently
+ * change the other.
+ */
+export const SALE_UPDATE_ROLES = ['Super Admin', 'Managing Director', 'Area Manager'];
+
 // ── audit ─────────────────────────────────────────────────────────────────
 export const AUDIT_ACTION = [
     'create', 'update', 'delete', 'login', 'logout', 'approve', 'rule_override', 'seed',
