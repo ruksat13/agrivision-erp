@@ -24,7 +24,7 @@ read it before building a screen), [`docs/FIRESTORE-SCHEMA.md`](docs/FIRESTORE-S
 | `src/rules/` | The point-of-sale rule engine. A rule is a plain function; adding one is a file plus one line in `RULES` in `checkSaleRules.js`. |
 | `src/components/` | Shared UI: `Notice.js` (banner + the `useFlash`/`useCollection` hooks), `LicenceBadge.js`, `SafetyPanel.js`, `Sidebar.js`, `ProtectedRoute.js`. |
 | `src/config/menu.js` | The menu tree, and the source of the permission path list. |
-| `firestore.rules` | Production Security Rules — the real authority (§5). |
+| `firestore.rules` | Production Security Rules — where a control is actually enforced (§6). |
 | `firestore.indexes.json` | Composite indexes. A new scoped or ordered query usually needs one. |
 | `scripts/` | Seeding (`seed*.mjs`), verification (`verify.mjs`), the emulator harness (`dev-reset.mjs`, `emulator-rules.mjs`). |
 
@@ -198,7 +198,62 @@ the whole shaped profile, which is why the app works; `startSession()` in
 
 ---
 
-## 6. Never invent data
+## 6. Where a control is enforced
+
+**A rule that matters is enforced on the server, in `firestore.rules`.** The UI
+gate is a convenience — it keeps a user from reaching for something they cannot
+have. It is never the control, because it is not there for a caller who never
+went through the screen.
+
+Two failure modes, and this codebase has hit both:
+
+- **Enforced only in the UI** — a hidden button is not a control.
+- **Shown but refused by the server** — a screen that can only produce an error.
+
+### The worked example: the sale-rule override
+
+One decision, enforced in four places, and only one of them counts:
+
+| Where | What it does |
+|---|---|
+| `SalesEntry.js` — `OVERRIDE_ROLES.includes(currentUser?.role)` | Hides the Override button and shows "Area Manager only" instead. Convenience. |
+| `checkSaleRules.js` — `applyOverride()` | Refuses an override with no written reason, and any override of a rule marked `overridable: false`. |
+| `sales.js` — `createSale()` | Refuses to persist a sale carrying a block nobody overrode, or an override with no reason. |
+| `firestore.rules` — `audit_log` create, via `canOverrideRules()` | Refuses the `rule_override` entry unless `reason` is a non-empty string **and** the caller's role may override. **This is the control.** |
+
+That is also why `OVERRIDE_ROLES` and `canOverrideRules()` are the same list
+written twice (§5) — the copy in the rules is the one that holds.
+
+### Never show a control the server will refuse
+
+- **Page permissions must match the rules.** `OFFICER_PERMISSIONS` omits
+  `/audit-log` because the rules grant a Sales Officer no read on `audit_log`;
+  offering the page would open a screen that can only show an error. It omits
+  `/compliance-report` for the adjacent reason — `licences` *is* readable by
+  anyone signed in, but only a Super Admin, Area Manager or Accountant may write
+  one, so an officer who cannot renew a licence has no use for the register.
+  Match page access to the authority the role actually has, in both directions.
+- **A grant has to cover the whole batch.** The `customers` block in
+  `firestore.rules` records the case: the Managing Director held
+  `permissions: 'all'` and `sales` create, but was in neither `customers` list,
+  so a **credit** sale failed while a cash sale went through — `createSale()`
+  moves `customers.balance` in the same batch as the invoice, and the batch fails
+  whole.
+- **Do not widen a rule ahead of the app.** `bank_accounts` deliberately
+  withholds read from the Accountant while `/cash-collection` is still a
+  sample-data screen that reads nothing.
+- **Where the screen and the rules genuinely disagree, write it down** in the
+  rules file rather than quietly refusing a button the screen still shows —
+  `product_demands` lets the Storekeeper who raised a request approve it, and the
+  comment says plainly that this is a weak control.
+
+The access matrix in `PROJECT-OUTLINE.md` §4 is design intent. `firestore.rules`
+is what runs, it is narrower in places, and each divergence is explained in its
+own `match` block.
+
+---
+
+## 7. Never invent data
 
 This system prints regulatory claims on a dealer's invoice. Making one up is the
 worst failure available here.
@@ -225,7 +280,43 @@ worst failure available here.
 
 ---
 
-## 7. Testing
+## 8. The seed is the demo database
+
+**`npm run dev:reset` must always produce a working system with no manual step.**
+If a change leaves "and then run X by hand" behind, the change is not finished.
+`dev-reset.mjs` exits non-zero and stops the emulator rather than leaving a
+half-seeded database — commit `f76a626` is the case it was built for: 285
+documents seeded, no Auth accounts, and nothing could log in until
+`seed-auth.mjs` was run separately. A running emulator with a populated
+Firestore and no logins looks exactly like a working machine until the login
+screen refuses you.
+
+**A master a screen selects from belongs in the seed.** An empty transactional
+register is an empty register; an empty dropdown reads as a broken feature. That
+is why `suppliers` (20) and `expense_heads` (24) are seeded and the other twelve
+Tier 2 collections start empty on purpose.
+
+Adding a collection to the seed is three edits:
+
+1. The data in `scripts/seed-data.mjs` — plain data, no imports, so Node runs it
+   with no build step.
+2. A `seedX()` in `scripts/seed.mjs`, **and** the collection name in its
+   `COLLECTIONS` array, which is also what `--wipe` clears. A collection missing
+   from that array is never wiped and re-seeds on top of itself.
+3. The expected count in `EXPECTED` in `scripts/verify.mjs`, or the run stops
+   counting it.
+
+`seed.mjs` cannot import `src/services` (ES modules inside a CRA tree), so the
+document shapes are maintained by hand against `docs/FIRESTORE-SCHEMA.md`. Change
+a shape there and change it here too.
+
+Seeded data is demo data, not invented data (§7): everything comes from the
+sample arrays already in the pages, and the two things the seed refuses to invent
+are labelled in the code and print as placeholders on screen.
+
+---
+
+## 9. Testing
 
 ```bash
 npm run dev:reset
@@ -256,9 +347,41 @@ works" but "100 of AI-000730 sold at Head Office took Stock Report from 2,500 to
 2,400 with 100 in the Sell column". If you did not run it under the real rules,
 say so rather than implying you did. If a check failed, say so with the output.
 
+### Stopping the emulator cleanly (Windows)
+
+**Ctrl-C in the `dev:reset` window.** That script traps SIGINT and takes the
+whole process tree down with `taskkill /T /F`, then waits for the ports to be
+released.
+
+Any other way of killing it orphans the emulator. On Windows `spawn(...,
+{ shell: true })` puts a `cmd.exe` between Node and `npx`, and `npx` starts the
+emulators. Firestore is a `java -jar cloud-firestore-emulator` child holding
+8080 and 9150; Auth (9099), the UI (4000) and the hub (4400) are held by the
+`firebase-tools` Node process. **The wrapper dying does not take the children
+with it.** Closing the terminal, killing the wrapper from Task Manager, or a
+crash leaves those ports held.
+
+The symptom is the next run failing immediately with *"the emulator exited early"*
+and *"Is another emulator already running, or is port 8080 taken?"*. Check before
+concluding a change broke something:
+
+```powershell
+netstat -ano | findstr /R /C:":8080 " /C:":9099 " /C:":4000 " /C:":4400 "
+```
+
+Kill what it names, tree and all:
+
+```powershell
+taskkill /PID <pid> /T /F
+```
+
+Then re-run `npm run dev:reset`. The emulator keeps nothing on disk, so an
+orphan costs only the ports — never try to reuse one, because its rules and its
+data are whatever the dead run left behind.
+
 ---
 
-## 8. Commits
+## 10. Commits
 
 ```
 [sadab] Stock Report and Customer read the database, and the dead filters work
@@ -281,6 +404,30 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
 ```
 
 Work happens on `main`. Do not commit, push or deploy unless asked.
+
+---
+
+## The two documents that are submitted work
+
+[`docs/UNIQUE-FEATURES.md`](docs/UNIQUE-FEATURES.md) and
+[`docs/PROJECT-OUTLINE.md`](docs/PROJECT-OUTLINE.md) are academic deliverables —
+dated, revision-tracked, written for a supervisor and an examiner. **Do not edit
+them unless asked.** They record what was believed and decided on a date, and
+rewriting that to match today's code destroys the thing they are for. This does
+not apply to `FIRESTORE-SCHEMA.md` or `SCREEN-AUDIT.md`, which are working
+documents and are kept current (§3 step 1).
+
+When code makes a claim in them stale, **say so and leave the file alone.**
+`PROJECT-OUTLINE.md` §6 "Implementation Status" is already overtaken in five
+rows — sales order entry, data persistence, business rules, the audit trail and
+"authentication — browser storage, not a server" are all now built. That is known.
+Report a *new* divergence you introduce; do not re-report these.
+
+One part of `UNIQUE-FEATURES.md` is a standing requirement rather than history:
+its §7 marks every legal citation **VERIFY**, meaning it must be checked against
+the gazette or the DAE before it reaches the report — and it is the same section
+that owes `bannedAuthority` a real notification reference. Treat those as open,
+not as recorded fact.
 
 ---
 
@@ -333,7 +480,7 @@ recognisable to someone who uses the real system.
 | Money | `number`, two decimals; the `taka()` helper the migrated screens use (`৳ 1,234.00`). Never a formatted string in the document. |
 | Office names | `officeLabel(id)` — the long form is presentation, the short id is stored. |
 | Licence status, days remaining | Derived at read time by `licences.js` (D5). Never stored, never recomputed in a page. |
-| Anything safety-related | Only real label data, or the "not recorded" marker (§6). |
+| Anything safety-related | Only real label data, or the "not recorded" marker (§7). |
 | Who may press a button | The role, tested against the rules — not the screenshot's UI. |
 
 **Then, before writing the page:**
