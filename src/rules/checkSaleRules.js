@@ -37,21 +37,19 @@
 // Add a rule here and nowhere else. Each entry is
 //   (context) => RuleResult | RuleResult[] | null      (may be async)
 
-import { licenceRule } from './licenceRule';   // Feature 1 — dealer licence
-import { bannedRule } from './bannedRule';     // Feature 2 — withdrawn registration
+import { licenceRule } from './licenceRule';         // Feature 1 — dealer licence
+import { bannedRule } from './bannedRule';           // Feature 2 — withdrawn registration
+import { creditLimitRule } from './creditLimitRule'; // credit limit — not claimed as a contribution
 
 // Still to come:
 //
 // Feature 4 — expired stock: cut from this submission. Batch.js is a bill of
 //   materials and carries no lot identity to hang an expiry date on.
-//
-// Credit limit: not claimed as a contribution (UNIQUE-FEATURES.md §4) because
-//   every ERP has it, but creditLimitCheck() in services/customers.js already
-//   returns a RuleResult, so it drops straight in when wanted.
 
 const RULES = [
     licenceRule,
     bannedRule,
+    creditLimitRule,
 ];
 
 // ── Running them ──────────────────────────────────────────────────────────

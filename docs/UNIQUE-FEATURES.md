@@ -27,11 +27,15 @@ and is now recommended against outright. The reasoning is in §5.
 
 ## 2. Honest Starting Position
 
-The current system reproduces the screen layout of an existing local product (saerp). Ninety-three
-screens render, but every screen shows sample data held in the component, and no screen enforces a
-rule that a general-purpose ERP does not already enforce. **As it stands the project has no
+The system as found reproduced the screen layout of an existing local product (saerp). Ninety-three
+screens rendered, but every screen showed sample data held in the component, and no screen enforced a
+rule that a general-purpose ERP does not already enforce. **As it stood the project had no
 distinguishing feature.** A supervisor familiar with saerp will recognise the resemblance
 immediately, so the gap is best acknowledged and closed rather than defended.
+
+**Since built (20 August 2026):** the rules in §5 run at the point of sale, so the sentence above is
+the starting position and no longer the current one. The resemblance to saerp is unchanged, and the
+answer to it in §11 stands as written.
 
 What the presentation layer does give the project is a domain vocabulary that generic ERPs lack —
 territory hierarchy, repacking yield, inter-office demand requisition. The contribution proposed
@@ -59,11 +63,17 @@ Findings that bear on the plan, with file references.
 
 **Costs us**
 
+All three were the position on 7 August, and all three are now closed. What closed each is noted
+against it.
+
 - No data persistence anywhere. `firebase` is installed and `src/firebase.js` exists, but every page
   holds its data in `useState` with a hardcoded initial array. Refreshing the browser clears
-  everything.
-- No sales order entry (see §1).
-- Authentication is browser-storage based, not Firebase Auth; passwords are not hashed.
+  everything. *Closed — 24 of the 47 files in `src/pages/` read Firestore through `src/services/`.
+  `docs/HANDOVER.md` names the sixteen screens that still hold their own array.*
+- No sales order entry (see §1). *Closed — `src/pages/SalesEntry.js`.*
+- Authentication is browser-storage based, not Firebase Auth; passwords are not hashed. *Closed —
+  Firebase Authentication; the caller's role is read from `users/{uid}` and enforced server-side in
+  `firestore.rules`.*
 
 ---
 
@@ -73,9 +83,10 @@ Findings that bear on the plan, with file references.
 
 | Capability | Tally ERP | Odoo | saerp | **AgriVision (proposed)** |
 |---|---|---|---|---|
-| Sales, purchase, inventory, ledgers | Y | Y | Y | Y |
+| Sales, purchase, inventory | Y | Y | Y | Y |
+| Customer and supplier ledgers | Y | Y | Y | N&nbsp;\* |
 | Territory / area sales hierarchy | N | P | Y | Y |
-| Officer-wise target and achievement | N | P | Y | Y |
+| Officer-wise target and achievement | N | P | Y | N&nbsp;\* |
 | Credit limit enforcement | Y | Y | Y | Y |
 | Role-based access control | Y | Y | Y | Y |
 | Audit trail | Y | Y | P | Y |
@@ -85,9 +96,19 @@ Findings that bear on the plan, with file references.
 | **Bengali safety and dosage panel printed on the invoice** | N | N | N | **Y** |
 | **Expired-stock sale block and expiry dashboard** | P | P | N | **Y** (if time allows) |
 
+**\* Two rows are marked down from the proposal, and the report must carry them as marked.** The
+customer and supplier **ledger screens** show sample rows beside a master balance that is real, so
+the two disagree — the ledgers are not wired to the transactions. **Officer-wise achievement** is
+worse than unwired: `Employee.js:59` computes it as `target × (0.7 + Math.random() × 0.4)`, a
+different figure on every render. Neither is a capability the system has, and an examiner who opens
+either screen twice will see it.
+
 Note the middle block — credit limits, RBAC and audit trail are listed deliberately so that the
 report does **not** claim them as contributions. They are table stakes. Only the lower block is
-claimed.
+claimed. Credit limit enforcement is now a real check rather than an intention — `creditLimitRule` on
+the same engine as Features 1 and 2, blocking the save when a sale's unpaid portion would take the
+dealer past their limit, overridable by an Area Manager with a written reason. It remains table
+stakes and is still not claimed.
 
 Odoo can be made to do the lower block by writing a custom module. The claim is not that it is
 impossible elsewhere; it is that no agri-input ERP ships it, and that the domain requires it.
@@ -108,10 +129,13 @@ Weeks 1–3 finish on schedule.
 emulator. `src/rules/licenceRule.js`, hung on the engine in
 `src/rules/checkSaleRules.js`, applied by `src/pages/SalesEntry.js`.
 
-Of the six parts listed below, 1, 2, 4 and 5 are built and tested. Part 3 (the
-dashboard panel) and part 6 (the compliance report) have their queries in the
-service layer — `expirySummary()` and `complianceReport()` in
-`src/services/licences.js` — but no screen renders them yet.
+All six parts listed below are built and tested. Parts 3 and 6 were the last two
+and landed on 19 August: the queries that had been sitting unrendered in
+`src/services/licences.js` now have their screens — `expirySummary()` in the
+licence expiry panel on `src/pages/Dashboard.js`, and `complianceReport()` in
+`src/pages/ComplianceReport.js`. Both paint the status derived in `licences.js`
+rather than recomputing it, so the report, the panel and the rule cannot drift
+apart on what "expiring" means.
 
 **Build this first.**
 
@@ -214,7 +238,8 @@ retrospectively and breaks old invoices.
 1. `bannedFrom` date, `bannedReason` and `bannedAuthority` on the product record, set from the
    Product page.
 2. Sale of the product is refused on and after that date, with the reason and the authority shown.
-   *(The purchase path is not built — Purchase.js is still a Tier 2 screen reading its own array.)*
+   *(The purchase path is built as well — `bannedPurchaseChecks()` in `src/services/purchases.js`
+   refuses a receipt of the same product on the same date basis.)*
 3. Transactions dated before the ban remain readable and reportable, unaltered.
 4. A short register of banned products with effective dates. *(Shown as a panel on the Product page;
    not yet printable.)*
@@ -285,8 +310,10 @@ agricultural extension problem. The invoice is the one document that reliably re
 1. Safety fields on the product record: WHO hazard class (Ia / Ib / II / III / U), Bengali signal
    word (অতি বিষাক্ত / বিষাক্ত / সতর্কতা), pre-harvest interval in days, re-entry period, first-aid
    note, approved crops.
-2. The invoice and challan print templates render these in Bengali in a bordered panel, colour-coded
-   by hazard class, for every agrochemical line on the document.
+2. The invoice print template renders these in Bengali in a bordered panel, colour-coded by hazard
+   class, for every agrochemical line on the document. *(The invoice only. The challan lives on
+   `Delivery.js`, which is still a sample-data screen with no print path, so there is nothing there
+   to print the panel on.)*
 3. Products with no safety data print a visible "safety data not recorded" marker rather than
    silently printing nothing.
 
@@ -311,10 +338,15 @@ survive a supervisor who knows the rules, and the honest version is still a good
 
 ### Feature 4 — Expired Stock Block and Expiry Dashboard *(only if ahead of schedule)*
 
+**Status: NOT BUILT — cut from this submission**, on the reasoning already given under *Why it is
+scoped down* below: `Batch.js` is a bill of materials and carries no lot identity to hang an expiry
+date on. Nothing in the list below exists. The engine has room for it —
+`src/rules/checkSaleRules.js` records the cut where the rule would have been registered.
+
 **The problem.** Agrochemicals carry expiry dates. Selling expired product is both unlawful and
 agronomically useless, and expiring stock is capital about to be written off.
 
-**What is built**
+**What it would be**
 
 1. Expiry date and manufacturing date captured at goods receipt on the Purchase screen.
 2. Stock carries its expiry date through to the sale.
@@ -474,9 +506,13 @@ twice in a row, in under two minutes.
 ## 9. Scope Honesty in the Report
 
 The report must state plainly which modules are backed by the database and which still display sample
-data. Six live modules honestly labelled is a stronger submission than ninety-three modules implied
-to work. Examiners test the boundary, and finding an undisclosed one costs more marks than the
+data. Twenty-four live modules honestly labelled is a stronger submission than ninety-three modules
+implied to work. Examiners test the boundary, and finding an undisclosed one costs more marks than the
 limitation itself would have.
+
+**That figure was six when this document was written; it is 24 of the 47 files in `src/pages/`
+today.** `docs/HANDOVER.md` carries the current count and names the sixteen screens that still render
+a module-level array — check it rather than reusing this number, because it moves with the work.
 
 **Deferred, and to be listed as future work rather than claimed:**
 

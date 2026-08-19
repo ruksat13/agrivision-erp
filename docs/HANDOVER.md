@@ -1,6 +1,6 @@
 # Handover — where this project stands
 
-**Updated 19 August 2026.** State only. The conventions are in
+**Updated 20 August 2026.** State only. The conventions are in
 [`CLAUDE.md`](../CLAUDE.md); how to run it is in [`README.md`](../README.md).
 Nothing here is repeated from either.
 
@@ -23,12 +23,19 @@ under the real rules, and leaves the emulator on the dev rules.
   which nothing could do before.
 - **Feature 2 — banned products.** Date-effective, on the sale path *and* the
   purchase path (`bannedPurchaseChecks`). Not overridable, by design.
-  `UNIQUE-FEATURES.md` §5 still says the purchase path is not built; that
-  sentence is stale, and the file is a dated deliverable so it stays as written.
 - **Feature 3 — Bengali safety panel.** Prints on the invoice from a snapshot
   taken at the moment of sale, with a visible "not recorded" marker where there
   is no data. The two products that carry data carry **placeholder** data and say
   so in print — see *Blocked* below.
+
+**Credit limit, as a fourth thing the engine refuses.** `creditLimitRule` joined
+`licenceRule` and `bannedRule` on 20 August — three rules registered now. It is a
+**block**, because only a block gates the save and only a block writes a
+`rule_override` row, and it is **overridable**, because a credit limit is the
+company's own commercial threshold rather than a legal prohibition. It reads
+`dueAmount`, not the grand total, so a cash sale settled in full is never
+refused. Not claimed as a contribution — every ERP has one — but it is now
+enforced rather than displayed.
 
 **The spine.** Sales order entry, stock movements (sale, purchase, repack,
 opening), the dealer and supplier ledgers' balances, invoice numbering from
@@ -37,8 +44,18 @@ atomic counters, and an append-only audit log that every write goes through.
 **Numbers, as of this commit.** 24 of 47 files in `src/pages/` read Firestore
 (4 of the rest are thin wrappers around wired components and 2 are auth
 screens). 20 service modules. 23 collections have a `match` block in
-`firestore.rules`. 23 composite indexes declared. `npm run verify:rules` checks
-49 reads against 6 seeded roles.
+`firestore.rules`. 23 composite indexes declared. 3 rules registered on the sale
+engine. `npm run verify:rules` checks 49 reads against 6 seeded roles.
+
+**`UNIQUE-FEATURES.md` was corrected on 20 August.** The one occasion `CLAUDE.md`
+allows editing that file is a claim that has become false, and eleven had. Seven
+understated the project: the §2 framing, the three "Costs us" findings, Feature
+1's two unrendered parts, Feature 2's purchase path, and §9's count of live
+modules (six, now 24). Four overstated it, which matters more — §4 marked the
+ledgers and officer-wise achievement `Y`, Feature 3 claimed the challan as well
+as the invoice, and Feature 4, never built, was headed "What is built". The
+dated planning prose is untouched; only the false statements moved. Nothing else
+in that file should be rewritten to match today's code.
 
 ---
 
