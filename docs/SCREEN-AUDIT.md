@@ -112,7 +112,7 @@ shape of the *existing* rows, which the form does not produce.
 |---|---|
 | `src/pages/Mapping.js:40` with `:57` | Form produces `{name, manager, status}`; rows carry `officeName` / `regionName` / `areaName`, `region`, `area`, `address`, `totalArea`, `officer`. **All three Mapping screens** append blank rows |
 | `src/pages/SMS.js:47` with `:64` | On the Campaign screen, "+ New Campaign" opens the **SMS** form (recipient / phone / message). Campaign rows key on title / target / totalSMS / sent → blank row |
-| `src/pages/License.js:35` with `:52` | On the Category screen, "+ New Category" opens the **License** form. Category rows key on description / totalLicense → blank row |
+| ~~`src/pages/License.js:35` with `:52`~~ | ~~On the Category screen, "+ New Category" opens the **License** form. Category rows key on description / totalLicense → blank row~~ **Resolved 19 August.** The Category route is now a **read-only** licence-type reference — `LICENCE_TYPE` and what each type authorises, with live counts off the register. It has no Add button, so no blank row can be appended. A licence type is a schema decision (it also moves `LICENCE_FOR_CATEGORY` and the sale rule), not a record somebody types in |
 
 **Effort:** **0.75 person-days** for all three
 **Before or after Firestore:** **Before.** These are symptoms of undecided entity shapes. Designing
@@ -140,7 +140,7 @@ Firestore collections without settling them migrates the confusion into the data
 | # | File and line | Name suggests | Actually is |
 |---|---|---|---|
 | 1 | `src/pages/Batch.js:8-21` | Batch / lot register | A **bill of materials**. Fields are `no, product, pcode, date, items[{name, code, unit}]` — no lot number, manufacturing date or expiry date anywhere. Repacking consumes it as a recipe. Confirms `UNIQUE-FEATURES.md` §1 |
-| 2 | `src/pages/License.js:4-9` | Dealer licence register | The **company's own** licences — Trade, VAT, Import, issued by DNCC, NBR, MOC. Confirms `UNIQUE-FEATURES.md` §1 |
+| 2 | ~~`src/pages/License.js:4-9`~~ | Dealer licence register | ~~The **company's own** licences — Trade, VAT, Import, issued by DNCC, NBR, MOC~~ **Resolved 19 August**, by decision 3 below. Both registers exist: `/license` (company) and `/license-dealer` (dealer), one component, one `licences` collection, separated by `scope`. The four hardcoded rows are gone, and with them the stored `status` that contradicted the Compliance Report |
 | 3 | `src/pages/Inventory.js` (163 lines) | — | **Never imported anywhere.** No route in `App.js`. Contains a `'Batch'` key carrying `batchNo` (`:8-11`) — a remnant of an earlier design, now only a source of confusion |
 | 4 | `src/pages/Accounts.js` (171 lines) | — | **Never imported anywhere.** Same dead code |
 | 5 | `src/pages/Delivery.js:140-145` vs `:202` | Delivery Order | The form collects customer, area, date and items; the table shows only Order ID, Amount and Status. **Half of what is entered can never be seen.** The columns were dropped in the most recent commit; the form was not |
@@ -244,7 +244,7 @@ still a hardcoded string array: `Purchase.js:48-49`, `Batch.js:23-24`,
 | SMS → SMS Log | Sending an SMS writes nothing to the log (`SMS.js:53`) |
 | Categories → Product | Categories, brands, units and origins added in `Categories.js` still never appear in the Product form. Category, type and unit now come from the schema enumerations rather than free text, but brand and origin remain free-text — `categories`, `brands` and `origins` are Tier 2 and not migrated |
 | Settings → Invoice | Saving Company Profile only sets a flag (`Settings.js:117`); the invoice header never changes. `COMPANY` is hardcoded in three places: `Sales.js:3`, `Purchase.js:12`, `CancelSales.js:3` |
-| Everything → Dashboard | `Dashboard.js:5-26` — every figure is a hardcoded string. The year and month selects (`:214-216`) filter nothing. The "More" and "View" buttons have no `onClick` (`:365`, `:380`) |
+| ~~Everything → Dashboard~~ | ~~`Dashboard.js:5-26` — every figure is a hardcoded string. The year and month selects (`:214-216`) filter nothing. The "More" and "View" buttons have no `onClick` (`:365`, `:380`)~~ **Resolved 19 August.** Nine tiles read Firestore, eight are blanked with the reason printed on the card, one (Approximate Profit) is blanked because no cost of goods is recorded. Both charts are grouped from `listSales()`, so the Year and Month selects filter. "View" opens its invoice on `/sales`; the five identical "More" buttons became one link to `/audit-log`. Removed: the fabricated scrolling notice, the "Account Balances" block (`bank_accounts` has no balance field) and the calendar's dead week/day/list switcher |
 
 ### 4.5 Filters present in the UI that do nothing
 
@@ -410,6 +410,12 @@ Recorded 13 August 2026.
 3. **License screen** — one component with a `type` prop giving two modes, company licences and
    dealer licences, following the `Categories.js` pattern. Both read from a single `licences`
    collection distinguished by a `scope` field. This is the foundation of Feature 1.
+   **Implemented 19 August.** `/license` → `type="Company"`, `/license-dealer` → `type="Dealer"`,
+   and the old `/license-category` route became `type="Category"`, a read-only reference rather
+   than a third register (§2.3 above). The two existing paths were kept, because a path here is a
+   permission string in every seeded profile; `/license-dealer` is new and was added to the Area
+   Manager's and the Accountant's seeded permissions, those being the two roles `firestore.rules`
+   lets write a licence.
 
 The resulting data model is specified in `FIRESTORE-SCHEMA.md`.
 
@@ -432,6 +438,36 @@ Updated 19 August 2026. Findings above are struck through where they no longer h
 | §5.2 — one component, several routes | Extended. `OpeningBalance.js` and `Commission.js` each serve a customer route and a supplier route from a `party` prop, the way `Categories.js` serves five. Four page files became two components plus four one-line wrappers |
 | §4.2 — two worlds of *supplier* data | **Resolved 16 August**, as a prerequisite of group B. `Supplier.js` reads `suppliers`; the three hardcoded name lists at `SupplierOpeningBalance.js:32`, `SupplierPayment.js:37` and `SupplierCommission.js` are gone and all three post against a real supplier code |
 | §5 — 38 of 40 reports identical | Outstanding; decision 1 above stands |
+| §4.4 — Dashboard is entirely hardcoded | **Resolved 19 August.** See the struck row in §4.4. It also carries Feature 1 part 3, the licence expiry panel `UNIQUE-FEATURES.md` §5 promised and no screen rendered |
+| §2.3, §3 item 2, §7 decision 3 — the License screen | **Resolved 19 August**, all three together. Three routes off one component, reading `licences`; a create / edit / renew form, which did not exist anywhere in the app before — dealer licences existed only because the seed wrote them |
+
+### The Dashboard and the License screen, 19 August
+
+Both were verified by signing in as each role with the emulator on the **REAL**
+rules (`npm run emulator:rules real`), not the dev ones.
+
+| Check | Result |
+|---|---|
+| Dashboard loads for Super Admin, Area Manager, Sales Officer | **All three, no `permission-denied` in the console and none in the network log.** Every query is gated on the caller's role first — `CAN_READ` in `Dashboard.js`, transcribed from `firestore.rules` |
+| Dashboard panel vs Compliance Report, Super Admin | **Identical** — 23 licences, 16 dealers with none, 3 expired, 1 / 2 / 2, 18 in date |
+| Dashboard panel vs Compliance Report, Area Manager | **Identical** — 21 licences, 8 with none, 3 expired, 1 / 1 / 1, 17 in date. Company-wide the same account would have read 23 and 16; the panel counts the caller's own dealers because `expirySummary()` now takes `holderIds`, which is what stops the two screens disagreeing |
+| Dealer count | 30 on the Dashboard, 30 on Customer, 30 in the database. It said **2,074** before |
+| Create a licence, as an **Area Manager** under the real rules | `AIC-000006` (M/S Bismillah Krishi Sheba, which held nothing) — Pesticide `PL-2026-1099`, DAE, expiring 2026-09-25. The dealer selector offered exactly the 21 dealers of `bogura-sadar`, and the type selector only the three dealer types |
+| Where it appeared | Customer: `No licence` → `Pesticide · Expiring (60)`. Compliance Report: 21 → 22 licences, 8 → 7 with none, Within 60 1 → 2. Dashboard: the same 22 / 7 / 2. `licences` register: 23 → 24 rows |
+| `audit_log` | `create` · `licences/wBbhsmUDq0SRbpqmF7iS` · Sadia Akter · Area Manager · 14:13:27 |
+| Renew | Same record, `PL-2026-1099` → `PL-2027-1099`, `Expiring (60)` → `Active`, 36 → 401 days. The summary cards moved with it |
+
+Found while doing it, and fixed — **not a Dashboard bug**:
+
+- **`getSaleItems()` sent an unscoped LIST on `sale_items`**, so the invoice modal
+  was dead for both scoped roles under the real rules: *"Could not load
+  AINV-2026-07-0034303 (permission-denied)"* for the very Sales Officer who
+  raised it. It surfaced because the Dashboard's "View" button now opens an
+  invoice; the ℹ button on `/sales` had the same failure and nothing had opened
+  it under the real rules. `sale_items` carries its own `officerId`/`areaId`
+  (D2) precisely so it can be scoped — the same one-level-deeper trap already
+  recorded in `overriddenLicenceValue()`. `lineNo` is now sorted in memory, so
+  two equality filters need no composite index.
 
 ### Regression check on Features 1 and 2, 16 August
 

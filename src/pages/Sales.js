@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
     listSales, getSaleWithItems, updateSaleStatus, advanceSale, cancelSale,
     nextStatus, formatDate, officeLabel, officeOptions, actorScope,
@@ -309,7 +309,15 @@ function Sales({ type = 'Sales' }) {
     const navigate = useNavigate();
     const { flash, say, busy, run } = useFlash();
 
-    const [activeStatus, setActiveStatus] = useState('Confirm');
+    // The Dashboard's Latest Orders panel sends an invoice here rather than
+    // dropping you on the register and leaving you to find it. Its View button
+    // had no onClick at all before (SCREEN-AUDIT.md §4), and a button that
+    // navigates to a list is barely better than one that does nothing — so the
+    // invoice number arrives as router state and opens its own invoice, on the
+    // tab it actually lives on.
+    const { state: nav } = useLocation();
+
+    const [activeStatus, setActiveStatus] = useState(nav?.focusStatus || 'Confirm');
     const [page, setPage] = useState(1);
 
     // filter bar
@@ -321,7 +329,7 @@ function Sales({ type = 'Sales' }) {
     // invoice view modal — the invoice NUMBER, not a row: the modal loads the
     // sale and its lines itself, so what it prints is the document, not
     // whatever a list row happened to be carrying.
-    const [viewInvoice, setViewInvoice] = useState(null);
+    const [viewInvoice, setViewInvoice] = useState(nav?.focusInvoice || null);
 
     // pending status change per row: { [invoiceNo]: selectedStatus }
     const [pendingStatus, setPendingStatus] = useState({});

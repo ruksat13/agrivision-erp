@@ -146,11 +146,26 @@ export const STAFF = [
     // then reading the record of it; without this the sequence needed a third
     // login, and more importantly an override its author cannot audit is a
     // weaker control. firestore.rules grants the matching read.
-    { code: 'AIU-000003', name: 'Sadia Akter', email: 'sadia@agrivision.com', role: 'Area Manager', areaId: 'bogura-sadar', permissions: ['/', '/sales-entry', '/sales', '/cancel-sales', '/customer', '/license', '/compliance-report', '/sales-report', '/audit-log'] },
+    // The four License-menu paths go together: firestore.rules grants this role
+    // create and update on `licences`, so it is the role that renews one, and a
+    // register you may write but not open is the §6 failure in the other
+    // direction. /license-dealer is where dealer licences moved when the screen
+    // became one component with a type prop (SCREEN-AUDIT §7 decision 3) — an
+    // Area Manager holding only /license would have kept the company's trading
+    // papers and lost the register Feature 1 actually enforces.
+    { code: 'AIU-000003', name: 'Sadia Akter', email: 'sadia@agrivision.com', role: 'Area Manager', areaId: 'bogura-sadar', permissions: ['/', '/sales-entry', '/sales', '/cancel-sales', '/customer', '/license', '/license-dealer', '/license-category', '/compliance-report', '/sales-report', '/audit-log'] },
     // The Accountant gets /audit-log because firestore.rules already grants
     // that role the read (see the audit_log match block), and
     // /compliance-report for the same reason as the Area Manager below.
-    { code: 'AIU-000004', name: 'Rahim Uddin', email: 'rahim@agrivision.com', role: 'Accountant', permissions: ['/', '/customer-ledger', '/cash-collection', '/expense', '/audit-log', '/compliance-report'] },
+    //
+    // The three licence pages were added with it. This role is the third name
+    // in the `licences` create/update rule and in LICENCE_WRITE_ROLES, and the
+    // comment on OFFICER_PERMISSIONS above already gives the reason an officer
+    // is refused the register: page access follows the authority to act on what
+    // the page shows. Holding that authority and not the page was the same
+    // mismatch read the other way round — the Accountant could renew a licence
+    // and had no screen on which to do it.
+    { code: 'AIU-000004', name: 'Rahim Uddin', email: 'rahim@agrivision.com', role: 'Accountant', permissions: ['/', '/customer-ledger', '/cash-collection', '/expense', '/audit-log', '/license', '/license-dealer', '/license-category', '/compliance-report'] },
     { code: 'AIU-000005', name: 'Karim Hossain', email: 'karim@agrivision.com', role: 'Storekeeper', permissions: ['/', '/purchase', '/batch', '/stock-report', '/product-demand'] },
 ];
 

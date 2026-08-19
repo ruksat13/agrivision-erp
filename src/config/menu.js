@@ -84,9 +84,13 @@ export const menuItems = [
         ]
     },
     {
+        // Three screens off one component (SCREEN-AUDIT §7 decision 3). The two
+        // paths that already existed keep their paths, because a path here is a
+        // permission string in every seeded profile and in users/{uid}.
         name: 'License', icon: '🪪', children: [
-            { name: 'License', path: '/license' },
-            { name: 'Category', path: '/license-category' },
+            { name: 'Company Licence', path: '/license' },
+            { name: 'Dealer Licence', path: '/license-dealer' },
+            { name: 'Licence Type', path: '/license-category' },
             { name: 'Compliance Report', path: '/compliance-report' },
         ]
     },

@@ -226,6 +226,13 @@ expiryDate <= today + 60 days  → Expiring (60)
 otherwise                      → Active
 ```
 
+**Which types go with which scope.** `LICENCE_TYPE_FOR_SCOPE` in `constants.js`: a dealer holds
+`Pesticide` / `Fertilizer` / `Seed`, the company holds `Trade` / `VAT` / `Import`. This is what the
+two `License.js` modes offer on their forms, so a VAT registration cannot be filed against a dealer
+where the Feature 1 rule would never look for it. It constrains the **form**, not the write —
+`createLicence()` validates `licenceType` against the full enumeration, because the split is a
+convention about who holds what, not a fact about the document.
+
 **Licence type → product category mapping.** This lives in one constants file in the code, **not** in
 Firestore — it is a rule, not data, and putting it in the database invites someone to edit it into
 inconsistency mid-demonstration.

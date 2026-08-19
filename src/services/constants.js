@@ -42,6 +42,33 @@ export const STATUS = ['Active', 'Inactive'];
 export const LICENCE_SCOPE = ['company', 'dealer'];
 export const LICENCE_TYPE = ['Pesticide', 'Fertilizer', 'Seed', 'Trade', 'VAT', 'Import'];
 
+// Which licence types belong to which scope. A dealer holds a government
+// permission to TRADE a restricted category; the company's own Trade, VAT and
+// Import papers are not something a dealer has, and offering all six on both
+// forms is how a VAT registration ends up filed against a dealer where the
+// Feature 1 rule will never look for it (LICENCE_FOR_CATEGORY maps categories
+// onto the first three only).
+export const LICENCE_TYPE_FOR_SCOPE = {
+    dealer: ['Pesticide', 'Fertilizer', 'Seed'],
+    company: ['Trade', 'VAT', 'Import'],
+};
+
+/**
+ * Who may create or renew a licence.
+ *
+ * The same arrangement OVERRIDE_ROLES has below: this list is written TWICE on
+ * purpose — here, so the License screen does not offer an Add button to a
+ * Sales Officer whose save the server would refuse, and again in
+ * firestore.rules (`match /licences`, create/update), which is the copy that
+ * actually holds. Security Rules cannot import JavaScript, so the two are kept
+ * in step by hand. Change both.
+ *
+ * A Sales Officer is absent because licence upkeep is not theirs — the same
+ * reasoning that keeps /compliance-report off OFFICER_PERMISSIONS in
+ * scripts/seed-data.mjs.
+ */
+export const LICENCE_WRITE_ROLES = ['Super Admin', 'Area Manager', 'Accountant'];
+
 // Which licence type authorises which product category (schema §4.3).
 // This is a rule, not data — it deliberately lives in code, not in Firestore.
 export const LICENCE_FOR_CATEGORY = {

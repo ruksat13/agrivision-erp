@@ -10,7 +10,7 @@ import { db } from '../firebase';
 import { COL, SALE_STATUS, SALE_FLOW, PAYMENT_TYPE, SALE_SOURCE, OFFICE } from './constants';
 import {
     getById, getByIdOrThrow, listDocs, updateDoc_, requireFields, assertEnum, requireActor,
-    toNumber, toTimestamp, toDate, money, queueAudit, nextSequence,
+    actorScope, toNumber, toTimestamp, toDate, money, queueAudit, nextSequence,
     stripUndefined, ServiceError,
 } from './core';
 import { getProductOrThrow, safetySnapshot } from './products';
@@ -31,12 +31,37 @@ export async function nextInvoiceNo(when = new Date()) {
 export const getSale = (invoiceNo) => getById(COL.SALES, invoiceNo);
 export const getSaleOrThrow = (invoiceNo) => getByIdOrThrow(COL.SALES, invoiceNo);
 
-/** The lines of one invoice, in entry order. */
+/**
+ * The lines of one invoice, in entry order.
+ *
+ * The caller's scope goes on this query, and without it the invoice modal was
+ * dead for both scoped roles — found by wiring the Dashboard's Latest Orders
+ * "View" button, which lands here: "Could not load AINV-2026-07-0034303
+ * (permission-denied)" for the Sales Officer who raised that very invoice.
+ *
+ * `sale_items` is row-scoped by myArea()/mine() exactly as `sales` is, and
+ * carries its own denormalised officerId and areaId precisely so that it can be
+ * (schema D2). Filtering by saleId alone is therefore an unscoped LIST and is
+ * refused outright — even though every line it would return belongs to a sale
+ * the caller has already been allowed to read. Rules are not filters
+ * (CLAUDE.md §5). This is the same one-level-deeper failure recorded in
+ * overriddenLicenceValue() in licences.js, in the same collection.
+ *
+ * `lineNo` is sorted in memory rather than in the query: two equality filters
+ * are served by Firestore's automatic single-field indexes, whereas adding an
+ * orderBy would need a composite index per role shape. An invoice has a handful
+ * of lines, so the sort is free.
+ */
 export async function getSaleItems(invoiceNo) {
-    return listDocs(COL.SALE_ITEMS, {
-        filters: [['saleId', '==', invoiceNo]],
-        order: ['lineNo', 'asc'],
+    const scope = actorScope();
+    const rows = await listDocs(COL.SALE_ITEMS, {
+        filters: [
+            ['saleId', '==', invoiceNo],
+            ['areaId', '==', scope.areaId],
+            ['officerId', '==', scope.officerId],
+        ],
     });
+    return rows.sort((a, b) => toNumber(a.lineNo) - toNumber(b.lineNo));
 }
 
 /** Everything the invoice modal needs, in one call. */

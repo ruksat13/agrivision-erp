@@ -157,7 +157,12 @@ function App() {
                       <Route path="/office-target-and-achievement" element={<Reports type="Office Target & Achievement" />} />
                       <Route path="/purchase-report" element={<Reports type="Purchase" />} />
                       <Route path="/product-demand-report" element={<Reports type="Product Demand" />} />
-                      <Route path="/license" element={<License type="License" />} />
+                      {/* One component, three modes — SCREEN-AUDIT.md §7 decision 3,
+                          the Categories.js pattern. Company and Dealer are the two
+                          licence registers; Category is the read-only licence-type
+                          reference. */}
+                      <Route path="/license" element={<License type="Company" />} />
+                      <Route path="/license-dealer" element={<License type="Dealer" />} />
                       <Route path="/license-category" element={<License type="Category" />} />
                       <Route path="/compliance-report" element={<ComplianceReport />} />
                       <Route path="/product" element={<Product />} />

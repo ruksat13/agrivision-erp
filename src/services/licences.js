@@ -100,9 +100,31 @@ export function countByBand(rows) {
     };
 }
 
-/** Counts for the 60 / 30 / 7 / expired cards, reading the licences itself. */
-export async function expirySummary({ scope = 'dealer' } = {}) {
-    return countByBand(await listLicences({ scope }));
+/**
+ * Counts for the 60 / 30 / 7 / expired cards, reading the licences itself.
+ * This is what the Dashboard panel calls — UNIQUE-FEATURES.md §5 Feature 1
+ * part 3.
+ *
+ * `holderIds` restricts the count to a set of dealer codes, and exists so the
+ * Dashboard panel and the Compliance Report cannot show different numbers to
+ * the same person. `licences` is readable by anyone signed in, so this read is
+ * company-wide whoever makes it — but complianceReport() below filters its rows
+ * to the caller's own dealers, because listCustomers() is scoped and a table of
+ * every area's licences beside 'No licence' rows from one area would be a lie
+ * about the same screen. An Area Manager would therefore have seen 23 licences
+ * on the dashboard and 21 on the report.
+ *
+ * Both counts go through countByBand(), so the BANDS could never drift; only
+ * the row set could, and this argument is what stops it. The Dashboard passes
+ * the dealers its own scoped listCustomers() returned, and omits it entirely
+ * for a caller who sees the whole company — passing an empty set would
+ * legitimately count nothing.
+ */
+export async function expirySummary({ scope = 'dealer', holderIds = null } = {}) {
+    const rows = await listLicences({ scope });
+    if (!holderIds) return countByBand(rows);
+    const only = holderIds instanceof Set ? holderIds : new Set(holderIds);
+    return countByBand(rows.filter(r => only.has(r.holderId)));
 }
 
 // ── Writes ────────────────────────────────────────────────────────────────
