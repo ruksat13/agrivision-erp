@@ -73,15 +73,28 @@ export async function getSaleWithItems(invoiceNo) {
 /**
  * listSales({ status, customerId, officerId, areaId, from, to, limit })
  *
- * Pass the signed-in user's scope so the result matches what Security Rules
- * allow: a Sales Officer gets { officerId }, an Area Manager gets { areaId }.
+ * The caller's own scope is applied automatically, for the reason
+ * listCustomers() does it: leaving it to each caller did not work. Sales.js and
+ * Dashboard.js remembered to spread actorScope(); statusCounts(),
+ * salesGroupedBy() and listCancelledSales() did not, so all three asked for
+ * every invoice in the company and would have been refused outright for an Area
+ * Manager or a Sales Officer. Rules are not filters (CLAUDE.md §5) — Firestore
+ * denies the LIST rather than narrowing it.
+ *
+ * An explicit argument still wins, so an admin can narrow to one area and the
+ * reports keep working. Passing one that contradicts the caller's own scope
+ * does not widen anything: the rules refuse it, exactly as they should.
+ *
+ * Both shapes are indexed — the (officerId, saleDate) and (areaId, saleDate)
+ * entries in firestore.indexes.json exist for these queries.
  */
 export async function listSales({ status, customerId, officerId, areaId, from, to, limit = 100 } = {}) {
+    const scope = actorScope();
     const filters = [
         ['status', '==', status],
         ['customerId', '==', customerId],
-        ['officerId', '==', officerId],
-        ['areaId', '==', areaId],
+        ['officerId', '==', officerId ?? scope.officerId],
+        ['areaId', '==', areaId ?? scope.areaId],
     ];
     if (from) filters.push(['saleDate', '>=', toTimestamp(from)]);
     if (to) filters.push(['saleDate', '<=', toTimestamp(to)]);
@@ -93,10 +106,27 @@ export async function listSales({ status, customerId, officerId, areaId, from, t
 /** Cancelled invoices — what the Cancel Sales screen reads (decision D3). */
 export const listCancelledSales = (opts = {}) => listSales({ ...opts, status: 'Cancelled' });
 
-/** Invoices still carrying a receivable — the Due report. */
+/**
+ * Invoices still carrying a receivable — the Due report.
+ *
+ * Scoped, like every other read of this collection. It was not, and the only
+ * menu that reaches /due-invoices is 'all', so nothing was failing — but an
+ * unscoped read of a row-scoped collection is a landmine rather than a
+ * decision, and the audit that followed getSaleItems() found three of them
+ * sitting behind screens nobody had opened under the real rules yet.
+ *
+ * The inequality needs the equality beside it in a composite index; both
+ * (officerId, dueAmount) and (areaId, dueAmount) are declared in
+ * firestore.indexes.json for exactly this query.
+ */
 export async function listDueSales({ limit = 200 } = {}) {
+    const scope = actorScope();
     const rows = await listDocs(COL.SALES, {
-        filters: [['dueAmount', '>', 0]],
+        filters: [
+            ['officerId', '==', scope.officerId],
+            ['areaId', '==', scope.areaId],
+            ['dueAmount', '>', 0],
+        ],
         order: ['dueAmount', 'desc'],
         limit,
     });
@@ -381,9 +411,23 @@ export async function recordPayment(invoiceNo, amount, { reason = null } = {}) {
 
 // ── Reports (the ones kept — schema §8) ───────────────────────────────────
 
-/** Products Sales: quantity and value per product over a date range. */
+/**
+ * Products Sales: quantity and value per product over a date range.
+ *
+ * `sale_items` is row-scoped by myArea()/mine() exactly as `sales` is, so the
+ * caller's scope goes on this query too. It filtered on territoryId and
+ * officerId only, which meant an Area Manager — whose grant is on `areaId` —
+ * was refused the LIST outright. Nothing had noticed because Reports.js is
+ * still a sample-data screen and no page calls this yet; it would have failed
+ * the first time one did, which is the same way getSaleItems() surfaced.
+ */
 export async function productSalesReport({ from, to, territoryId, officerId } = {}) {
-    const filters = [['territoryId', '==', territoryId], ['officerId', '==', officerId]];
+    const scope = actorScope();
+    const filters = [
+        ['territoryId', '==', territoryId],
+        ['officerId', '==', officerId ?? scope.officerId],
+        ['areaId', '==', scope.areaId],
+    ];
     if (from) filters.push(['saleDate', '>=', toTimestamp(from)]);
     if (to) filters.push(['saleDate', '<=', toTimestamp(to)]);
 

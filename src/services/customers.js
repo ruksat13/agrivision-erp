@@ -70,16 +70,30 @@ export async function customerOptions(filter = {}) {
 /**
  * Dealers carrying a receivable, largest first — the Due report.
  *
- * Deliberately NOT scoped by actorScope(), unlike listCustomers(). The only
- * menu that reaches /due-report is 'all' — Super Admin and Managing Director,
- * both of whom pass the customers read rule unconditionally, so the unscoped
- * query is legal for every caller that can actually get here. Were the report
- * ever given to an Area Manager it would fail with permission-denied, and the
- * fix is a composite index on (areaId, balance) before the filter, because
- * Firestore cannot combine an inequality with an unindexed equality.
+ * Scoped now, like listCustomers(). It used to be deliberately unscoped, on the
+ * grounds that only the two 'all' menus reach /due-report and both pass the
+ * customers read rule unconditionally — with a note that an Area Manager would
+ * get permission-denied and that the fix was a composite index. That reasoning
+ * was correct and the conclusion was wrong: it made the safety of a service
+ * function depend on a page permission list in another file, and the audit
+ * after getSaleItems() found three more of exactly that shape. One rule holds
+ * everywhere now — every list on a row-scoped collection carries actorScope().
+ *
+ * The predicted indexes are declared: (areaId, balance) and (officerId,
+ * balance) in firestore.indexes.json, because Firestore cannot combine an
+ * inequality with an unindexed equality.
  */
-export const listCustomersWithDue = () =>
-    listDocs(COL.CUSTOMERS, { filters: [['balance', '>', 0]], order: ['balance', 'desc'] });
+export const listCustomersWithDue = () => {
+    const scope = actorScope();
+    return listDocs(COL.CUSTOMERS, {
+        filters: [
+            ['areaId', '==', scope.areaId],
+            ['officerId', '==', scope.officerId],
+            ['balance', '>', 0],
+        ],
+        order: ['balance', 'desc'],
+    });
+};
 
 // ── Writes ────────────────────────────────────────────────────────────────
 

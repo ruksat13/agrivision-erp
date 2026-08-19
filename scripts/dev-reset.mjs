@@ -22,8 +22,9 @@
  *     npm run start:emulator
  *
  * Flags:
- *   --no-seed    start the emulators and load dev rules, but leave it empty
- *   --keep       do not wipe first (seeding will refuse if data is present)
+ *   --no-seed     start the emulators and load dev rules, but leave it empty
+ *   --keep        do not wipe first (seeding will refuse if data is present)
+ *   --skip-rules  do not run verify-rules.mjs (see below)
  */
 
 import { spawn } from 'child_process';
@@ -31,6 +32,7 @@ import { spawn } from 'child_process';
 const args = process.argv.slice(2);
 const NO_SEED = args.includes('--no-seed');
 const KEEP = args.includes('--keep');
+const SKIP_RULES = args.includes('--skip-rules');
 
 const HOST = '127.0.0.1';
 const FIRESTORE_PORT = 8080;      // matches firebase.json
@@ -171,6 +173,31 @@ function run(scriptArgs, label) {
             if (!KEEP) seedArgs.push('--wipe');
             await run(seedArgs, 'seeding');
             await run(['scripts/verify.mjs', '--emulator'], 'verification');
+
+            // Then the same database read back under the REAL rules, once per
+            // seeded role.
+            //
+            // Every step above runs under the DEV rules, which are wide open —
+            // and the most persistent class of bug in this codebase is
+            // invisible under them. A service function that lists more
+            // documents than the caller's role may read is refused outright by
+            // Firestore rather than narrowed, and six instances of it
+            // (listCustomers, overriddenLicenceValue, getSaleItems, and the
+            // three more found by the audit that followed the third) passed
+            // every check above before this line existed. Leaving it to
+            // "remember to run it" is what let the fourth one ship.
+            //
+            // Rules go back to dev afterwards, including when the check fails,
+            // so what is left is what was there before: a permissive emulator
+            // to develop against. --skip-rules leaves the step out.
+            if (!SKIP_RULES) {
+                await run(['scripts/emulator-rules.mjs', 'real'], 'loading real rules');
+                try {
+                    await run(['scripts/verify-rules.mjs'], 'rules verification');
+                } finally {
+                    await run(['scripts/emulator-rules.mjs', 'dev'], 'restoring dev rules');
+                }
+            }
         }
     } catch (err) {
         bad(err.message);
@@ -194,6 +221,15 @@ function run(scriptArgs, label) {
 
   Leave this window open — Ctrl-C stops the emulator and
   discards the data. Re-run \x1b[1mnpm run dev:reset\x1b[0m to get it back.
+
+  The emulator is back on the \x1b[1mdev\x1b[0m rules, which are wide open and
+  prove nothing about authorisation.
+  ${SKIP_RULES
+        ? '\x1b[31mverify:rules was SKIPPED — run it before believing a screen works.\x1b[0m'
+        : 'Every read was just checked under the real rules, once per seeded role.'}
+  Re-check after changing a query:
+    \x1b[1mnpm run emulator:rules real && npm run verify:rules\x1b[0m
+    \x1b[1mnpm run emulator:rules dev\x1b[0m
 \x1b[32m────────────────────────────────────────────────────────────\x1b[0m
 `);
 })();

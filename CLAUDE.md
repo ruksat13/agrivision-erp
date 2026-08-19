@@ -342,6 +342,44 @@ collection in it was denied — are invisible under dev rules.
 `npm run verify:emulator` counts documents and checks the invariants; its counts
 only hold on a freshly seeded database.
 
+### Every read states its scope, and is checked under the real rules
+
+**A new read is not done until `npm run verify:rules` passes.** `dev:reset` runs
+it for you between loading the real rules and putting the dev ones back.
+
+Six times now, one bug: a service function issues a LIST for more documents than
+the caller's role may read, and Firestore **refuses the whole query rather than
+narrowing it** (§5). `listCustomers()` showed an officer none of their own
+dealers; `overriddenLicenceValue()` emptied the compliance report for an Area
+Manager, then emptied it again one level lower because `sale_items` needed the
+scope too; `getSaleItems()` killed the invoice modal — and `cancelSale()` with it
+— for both scoped roles; `listDueSales()`, `listCustomersWithDue()` and
+`productSalesReport()` were the same shape behind screens nobody had opened yet.
+Every one was invisible under the dev rules, which is where development happens.
+
+So, for any read you add or change:
+
+1. **State the scope in the function's own comment**, in one of three forms —
+   *scoped by `actorScope()`*, *unscoped because the collection is not row-scoped
+   and these roles may read it*, or *the caller must be one of these roles,
+   because no filter can make it legal*. `listUsers()` is the third case: its
+   rule keys on the **document ID**, not on a field, so no `where()` clause can
+   rescue it and the constraint has to sit on the caller.
+2. **Add it to `READS` in `scripts/verify-rules.mjs`** with the roles
+   `firestore.rules` allows. The script fails if an export that looks like a read
+   is in neither `READS` nor `NOT_A_READ` — that check is the only thing standing
+   between this list and a seventh instance.
+3. **Run it.** It signs in as each seeded role and asserts *both* directions: a
+   read the role is entitled to must succeed, and one it is not must be refused.
+   The second half matters as much — a rule accidentally widened looks like a
+   passing test otherwise.
+
+The script refuses to run under the dev rules rather than reporting a green run
+that means nothing. What it does **not** cover is printed at the end of every
+run: writes and their batches, roles with no seeded account, composite indexes,
+and whether a screen calls the function correctly. Read that list before treating
+a pass as wider proof than it is.
+
 **Report what you actually observed, with the numbers.** Not "the stock report
 works" but "100 of AI-000730 sold at Head Office took Stock Report from 2,500 to
 2,400 with 100 in the Sell column". If you did not run it under the real rules,

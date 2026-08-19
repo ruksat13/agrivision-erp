@@ -27,7 +27,8 @@
     "seed": "node scripts/seed.mjs",
     "seed:emulator": "node scripts/seed.mjs --emulator --wipe",
     "verify": "node scripts/verify.mjs",
-    "verify:emulator": "node scripts/verify.mjs --emulator"
+    "verify:emulator": "node scripts/verify.mjs --emulator",
+    "verify:rules": "node scripts/verify-rules.mjs"
   },
   "eslintConfig": {
     "extends": [

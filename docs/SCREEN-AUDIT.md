@@ -457,6 +457,72 @@ rules (`npm run emulator:rules real`), not the dev ones.
 | `audit_log` | `create` · `licences/wBbhsmUDq0SRbpqmF7iS` · Sadia Akter · Area Manager · 14:13:27 |
 | Renew | Same record, `PL-2026-1099` → `PL-2027-1099`, `Expiring (60)` → `Active`, 36 → 401 days. The summary cards moved with it |
 
+### The scoped-read audit, 19 August
+
+`getSaleItems()` was the third instance of one bug: **a service function issues a
+LIST for more documents than the caller's role may read, and Firestore refuses
+the whole query rather than narrowing it.** Three instances meant there were
+more, so every read in `src/services/` was audited against `firestore.rules`.
+
+Only four collections can produce it. `customers`, `sales` and `sale_items` are
+scoped on a FIELD (`myArea(resource.data.areaId)` / `mine(resource.data.officerId)`),
+so `actorScope()` can put the rule's own clause on the query. `users` is scoped
+on the **document ID**, which no `where()` clause can satisfy. Everything else —
+`products`, `licences`, `stock_movements`, `audit_log` and the fourteen Tier 2
+collections — is granted by role alone, so a whole-collection LIST is legal for
+anyone granted read and illegal for everyone else, with no middle case.
+
+| Read | Collection | Was it scoped? | Who it failed |
+|---|---|---|---|
+| `listCustomers`, `customerOptions` | customers | yes | — (fixed earlier) |
+| **`listCustomersWithDue`** | customers | **no** | Area Manager, Sales Officer |
+| **`listSales`** | sales | **only if the caller remembered** | Area Manager, Sales Officer |
+| **`salesGroupedBy`, `statusCounts`, `listCancelledSales`** | sales | **no** — they call `listSales()` with no scope | Area Manager, Sales Officer |
+| **`listDueSales`** | sales | **no** | Area Manager, Sales Officer |
+| `getSaleItems`, `getSaleWithItems` | sale_items | fixed in the previous commit | Area Manager, Sales Officer |
+| **`productSalesReport`** | sale_items | **no** — filtered on `territoryId`/`officerId`, never `areaId` | Area Manager |
+| `overriddenLicenceValue`, `complianceReport` | 4 collections | yes | — |
+| **`listUsers`, `listOfficers`** | users | **cannot be** | Area Manager, Sales Officer, Storekeeper |
+| 33 other reads | products · licences · stock_movements · audit_log · Tier 2 | n/a — role-gated | correctly refused where not granted |
+
+Six were fixed by folding `actorScope()` into the query and declaring the seven
+composite indexes the new equality-plus-inequality shapes need. `listUsers()`
+cannot be fixed that way and is documented instead: the constraint is on the
+CALLER, and its two callers — `Admin.js` and `Expense.js` — are on the menus of
+exactly the three roles the rule allows. `listOfficers()` has no caller, and the
+screen it was written for is a Sales Officer's, who may not call it; that is
+recorded on the function.
+
+Three of the six were behind screens that do not exist yet (`Reports.js` is still
+sample data), which is precisely why nobody had seen them. `cancelSale()` was
+not: it calls `getSaleItems()`, so cancelling an invoice was refused for an Area
+Manager — the role `PROJECT-OUTLINE.md` §3.4 makes responsible for cancellation.
+
+**`npm run verify:rules` now runs this check.** It signs in as each of the six
+seeded logins and calls all 49 reads under the real rules, asserting both
+directions: a read the role may make must succeed, and one it may not must be
+refused. `dev:reset` runs it between loading the real rules and putting the dev
+ones back, so it happens without being remembered. It was validated three ways
+before being believed — the `getSaleItems()` bug was re-introduced and the run
+failed for exactly the two affected roles; the dev rules were loaded and the run
+refused to proceed at all; and an entry was deleted from its `READS` table and
+the coverage check named the export that had gone missing. What it does not
+cover is printed at the end of every run.
+
+One further bug came out of the same audit, of a different kind. **`listBannedProducts()`
+returned all 24 products**, of which 2 are banned: it read
+`filters: [['bannedFrom', '!=', null]]`, and `listDocs()` drops any filter whose
+value is `null` — deliberately, so callers can pass optional arguments straight
+through. The filter vanished and the query became "every product". It has no
+caller, so nothing was displaying it, but it is Feature 2 point 4's register. It
+filters in memory now.
+
+Found and **not** fixed, because it is a write and this pass was reads:
+`Sales.js` offers Change Status and Cancel to whoever opens it, but
+`allow update` on `sales` is `isAdmin() || myArea(...)` — a Sales Officer is
+refused. That is §6's "shown but refused by the server", and it needs the same
+treatment `SalesEntry.js` gives the Override button.
+
 Found while doing it, and fixed — **not a Dashboard bug**:
 
 - **`getSaleItems()` sent an unscoped LIST on `sale_items`**, so the invoice modal

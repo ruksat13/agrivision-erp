@@ -28,13 +28,44 @@ const NULLABLE_DEFAULTS = {
 export const getUser = (uid) => getById(COL.USERS, uid);
 export const getUserOrThrow = (uid) => getByIdOrThrow(COL.USERS, uid);
 
+/**
+ * The staff directory.
+ *
+ * **This one cannot be made safe with a where() clause, and that is the point.**
+ * Every other row-scoped collection here is scoped on a FIELD — customers and
+ * sales on `areaId`/`officerId` — so actorScope() can put the rule's own clause
+ * on the query and Firestore allows the LIST. The `users` rule is
+ *
+ *     allow read: if isAdmin() || hasRole(['Accountant'])
+ *                 || (signedIn() && request.auth.uid == uid)
+ *
+ * and that last clause is on the DOCUMENT ID, not on a field. A query cannot
+ * prove up front that it only returns your own document, so an Area Manager, a
+ * Sales Officer or a Storekeeper calling this is refused outright and no filter
+ * this function could add would change that.
+ *
+ * So the constraint is on the CALLER: only a Super Admin, a Managing Director
+ * or an Accountant may call it. Today that holds — Admin.js is on the two 'all'
+ * menus and Expense.js is the Accountant's, which is the need the users read
+ * grant was widened for in the first place (see the `users` block in
+ * firestore.rules). scripts/verify-rules.mjs asserts both halves: that those
+ * three succeed and that the other three are refused.
+ *
+ * To read one profile, use getUser(uid) — a GET, which the rule does satisfy.
+ */
 export const listUsers = ({ role, status, areaId } = {}) =>
     listDocs(COL.USERS, {
         filters: [['role', '==', role], ['status', '==', status], ['areaId', '==', areaId]],
         order: ['name', 'asc'],
     });
 
-/** Sales Officers, for the officer selector on the order screen. */
+/**
+ * Sales Officers, for the officer selector on the order screen.
+ * Same caller restriction as listUsers() — and note that the screen this was
+ * written for, SalesEntry.js, is reached by a Sales Officer, who may NOT call
+ * it. It has no caller today; give it one only from an admin or Accountant
+ * screen, or the selector will be an empty dropdown behind a console error.
+ */
 export const listOfficers = () => listUsers({ role: 'Sales Officer', status: 'Active' });
 
 // ── Writes ────────────────────────────────────────────────────────────────

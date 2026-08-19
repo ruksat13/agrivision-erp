@@ -141,8 +141,34 @@ export function isBannedOn(product, onDate) {
     return when >= from;
 }
 
-export const listBannedProducts = () =>
-    listDocs(COL.PRODUCTS, { filters: [['bannedFrom', '!=', null]], order: ['bannedFrom', 'desc'] });
+/**
+ * The register of withdrawn products — UNIQUE-FEATURES.md §5 Feature 2 point 4,
+ * newest withdrawal first.
+ *
+ * It used to read `filters: [['bannedFrom', '!=', null]]`, and returned the
+ * WHOLE catalogue: listDocs() drops any filter whose value is null, undefined
+ * or '' — deliberately, so callers can pass optional arguments straight through
+ * — and `null` here is the value being compared against, not an absent
+ * argument. The filter was silently removed and the query became "every
+ * product, ordered by bannedFrom". All 24 seeded products came back as banned,
+ * of which 2 are. Caught by scripts/verify-rules.mjs printing row counts beside
+ * every read: 24 where the answer had to be 2.
+ *
+ * Filtered in memory instead of restoring the inequality. `!=` against null is
+ * awkward in Firestore, it would need its own index to combine with the sort,
+ * and the catalogue is a few hundred rows — the same trade listProducts()
+ * already makes for `search`.
+ *
+ * status: null so a product withdrawn AND deactivated still appears. The
+ * register exists to say what may no longer be sold, and being deactivated as
+ * well does not make that less true.
+ */
+export async function listBannedProducts() {
+    const rows = await listProducts({ status: null });
+    return rows
+        .filter(p => p.bannedFrom)
+        .sort((a, b) => (toDate(b.bannedFrom)?.getTime() ?? 0) - (toDate(a.bannedFrom)?.getTime() ?? 0));
+}
 
 // ── Feature 3 — Bengali safety panel ──────────────────────────────────────
 
