@@ -445,6 +445,30 @@ Work happens on `main`. Do not commit, push or deploy unless asked.
 
 ---
 
+## 11. Update `docs/HANDOVER.md` when you finish
+
+[`docs/HANDOVER.md`](docs/HANDOVER.md) is one page saying where the project
+stands right now: what works, what is still sample data, what is left to do, and
+what is blocked on somebody outside this repository. It is what a fresh session
+or a teammate reads first.
+
+**Update it at the end of any substantial piece of work** — a screen migrated, a
+feature part completed, a collection added, a class of bug fixed, anything that
+changes an answer on that page. Not for a typo or a comment. Do it in the same
+commit as the work, so the two cannot drift apart.
+
+It holds **state**; this file holds **conventions**. Do not copy anything from
+here into it. Keep it to one page: the moment it needs a table of contents it
+has stopped being read, and a handover that is not read is worse than none,
+because the next person believes it.
+
+Check the numbers rather than carrying them forward. The counts on that page —
+how many pages read Firestore, how many collections have a rules block, how many
+reads `verify:rules` covers — are all one shell command away, and a figure that
+was true a fortnight ago reads exactly like one that is true today.
+
+---
+
 ## The two documents that are submitted work
 
 [`docs/UNIQUE-FEATURES.md`](docs/UNIQUE-FEATURES.md) and
@@ -473,20 +497,18 @@ not as recorded fact.
 
 Not settled patterns — say so rather than guessing:
 
-- **Two screens bypass the service layer.**
-  [`Profile.js:16`](src/pages/Profile.js:16) and
-  [`Navbar.js:34`](src/components/Navbar.js:34) call `doc`/`getDoc`/`setDoc` on
-  `users` directly. `Profile.js` also *writes* that way, so it produces no audit
-  entry — and under the real rules only a Super Admin may update `users`, so it
-  cannot work for anyone else. Do not copy either; use `users.js`.
+- **One screen bypasses the service layer.**
+  [`Profile.js:16`](src/pages/Profile.js:16) calls `doc`/`getDoc`/`setDoc` on
+  `users` directly. It also *writes* that way, so it produces no audit entry —
+  and under the real rules only a Super Admin may update `users`, so it cannot
+  work for anyone else. Do not copy it; use `users.js`. (`Navbar.js` was the
+  second; its read was removed on 19 August, and it was dead code as well as a
+  bypass — `AuthContext.shapeUser()` always sets `name`.)
 - **`Notice` exists three times.** The shared one is `components/Notice.js`;
   `Product.js` and `SalesEntry.js` carry their own copies from before it was
   extracted. New screens import the shared one.
-- **22 of the 47 files in `src/pages/` are migrated.** The rest still render
-  module-level sample arrays — cash collection, delivery, HR, sale returns,
-  damages, mapping, SMS, settings, categories/brands/units, and `License.js`,
-  whose hardcoded rows even *store* a `status` that the migrated `licences`
-  collection derives at read time (D5). `Categories.js` is worth copying as a
+- **Not every screen is migrated.** `docs/HANDOVER.md` carries the current count
+  and the list; do not duplicate it here. `Categories.js` is worth copying as a
   screen structure — one component serving five tabs — but not as a data source.
 - **Cancelled wording differs by collection**: `Cancelled` in most, `Cancel` in
   `DEMAND_STATUS` and `OPENING_STATUS`, `Archived` in `OFFER_STATUS`. Each is

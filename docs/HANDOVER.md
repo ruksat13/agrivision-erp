@@ -1,0 +1,114 @@
+# Handover — where this project stands
+
+**Updated 19 August 2026.** State only. The conventions are in
+[`CLAUDE.md`](../CLAUDE.md); how to run it is in [`README.md`](../README.md).
+Nothing here is repeated from either.
+
+To get a working machine: `npm run dev:reset`, then `npm run start:emulator` in
+a second terminal. That seeds 285 documents and twelve logins, checks every read
+under the real rules, and leaves the emulator on the dev rules.
+
+---
+
+## What works
+
+**All three features in `UNIQUE-FEATURES.md` are built end to end.**
+
+- **Feature 1 — dealer licence compliance.** All six parts. The point-of-sale
+  rule refuses a restricted product to a dealer whose licence has lapsed or is
+  missing, an Area Manager may override with a written reason that lands in
+  `audit_log`, and the register, the Dashboard expiry panel and the Compliance
+  Report all read the same derived status. The last two were the outstanding
+  parts and landed on 19 August; `License.js` now creates and renews licences,
+  which nothing could do before.
+- **Feature 2 — banned products.** Date-effective, on the sale path *and* the
+  purchase path (`bannedPurchaseChecks`). Not overridable, by design.
+  `UNIQUE-FEATURES.md` §5 still says the purchase path is not built; that
+  sentence is stale, and the file is a dated deliverable so it stays as written.
+- **Feature 3 — Bengali safety panel.** Prints on the invoice from a snapshot
+  taken at the moment of sale, with a visible "not recorded" marker where there
+  is no data. The two products that carry data carry **placeholder** data and say
+  so in print — see *Blocked* below.
+
+**The spine.** Sales order entry, stock movements (sale, purchase, repack,
+opening), the dealer and supplier ledgers' balances, invoice numbering from
+atomic counters, and an append-only audit log that every write goes through.
+
+**Numbers, as of this commit.** 24 of 47 files in `src/pages/` read Firestore
+(4 of the rest are thin wrappers around wired components and 2 are auth
+screens). 20 service modules. 23 collections have a `match` block in
+`firestore.rules`. 23 composite indexes declared. `npm run verify:rules` checks
+49 reads against 6 seeded roles.
+
+---
+
+## What is still sample data
+
+Sixteen screens render a module-level array and write nowhere:
+
+> `CancelSales` · `CashCollection` · `Categories` · `CustomerLedger` ·
+> `Damage` · `Delivery` · `Employee` · `EmployeeAccount` · `HR` · `Mapping` ·
+> `Reports` · `SMS` · `SalesReturn` · `Settings` · `SupplierLedger` ·
+> `SupplierPurchase`
+
+Two things follow that are easy to trip on:
+
+- **The three ledgers are not fed.** `CustomerLedger`, `SupplierLedger` and
+  `EmployeeAccount` show invented rows beside a `balance` on the master that is
+  real. The two disagree.
+- **Damage and Sales Return do not move stock**, though `damage` and
+  `sale_return` movement types exist and `cancelSale()` already writes the
+  latter. `purchaseReturns.js` is the closest working example.
+
+---
+
+## What is left to do
+
+Roughly in the order it matters:
+
+1. **`Profile.js` writes `users/` directly** (`:16`), so it produces no audit
+   entry — and under the real rules only a Super Admin may update `users`, so it
+   cannot work for anyone else. It is the last service-layer bypass; `Navbar.js`
+   lost its read on 19 August.
+2. **`scripts/verify-rules.mjs` covers reads only.** Writes and the batches
+   behind them are unchecked, and a batch fails whole. Every run prints its own
+   list of gaps — read it rather than trusting the green line.
+3. **Damage and Sales Return should move stock**, per above.
+4. **The 40 report routes.** `SCREEN-AUDIT.md` §7 decision 1 keeps 8 and takes
+   the other 32 out of the menu. The menu still lists all 40, and 38 of them
+   render the same sales table.
+5. **The remaining sample-data screens**, cheapest first: `Categories`,
+   `Settings`, `Mapping` — all masters other screens would select from.
+6. **Two screens still call `toISOString()`** (`CashCollection.js:3`,
+   `SupplierPurchase.js:37`). Banned everywhere else; fix them when those
+   screens are migrated.
+7. **`Notice` exists three times.** `Product.js` and `SalesEntry.js` carry
+   copies from before it was extracted.
+
+---
+
+## Blocked on someone else
+
+Nothing below can be closed from inside this repository.
+
+- **The real Firebase project is on one team member's account.** It is still
+  empty, `firestore.rules` has never been deployed to it, and neither have the
+  23 composite indexes. Everything verified so far is against the local
+  emulator, which serves any query regardless of index — **a missing index is
+  the one production failure no check here can catch.** Getting access, and one
+  deploy, is the single highest-value unblock.
+- **`UNIQUE-FEATURES.md` §7 marks every legal citation `VERIFY`.** They must be
+  checked against the gazette or the DAE before the report is submitted. This is
+  a standing requirement, not history.
+- **`bannedAuthority` on `AI-000905` and `AI-000906` is a stated placeholder**,
+  pending a real DAE notification reference.
+- **The safety data on `AI-000101` and `AI-000104` is placeholder data**, labelled
+  as such in the code and printed as such on the invoice. It needs the real
+  container labels photographed. Empty beats plausible — do not fill these in
+  from memory or from a web search (`CLAUDE.md` §7).
+
+---
+
+*Keep this current.* `CLAUDE.md` §11 requires this file to be updated at the end
+of any substantial piece of work. A handover that has gone stale is worse than
+none, because it is believed.
