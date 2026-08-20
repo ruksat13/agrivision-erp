@@ -124,15 +124,30 @@ service cloud.firestore {
     // so an unrelated update to a product that already holds figures and a
     // source still passes, because both survive the merge.
 
-    // A field carries a recorded value when it is present and is not an empty
-    // container. NOT a truthiness test: `phiDays: 0` and `reentryHours: 0` are
-    // figures a label states and a reader relies on, while `approvedCropsBn:
-    // []` and a whitespace-only string are absences.
+    // Six of the seven hold a scalar. A field carries a recorded value when it
+    // is present and is not the empty string. NOT a truthiness test: `phiDays:
+    // 0` and `reentryHours: 0` are figures a label states and a reader relies
+    // on, and a falsy test would wave through the two numbers that matter most.
+    //
+    // No `is string` / `is list` test anywhere below, on purpose. An evaluation
+    // error inside these functions would be INVISIBLE: `error || true` is true
+    // in this engine, so an error would be absorbed whenever a source is
+    // present and would propagate to a denial whenever one is not — that is,
+    // it would behave correctly by luck and no test could catch it. Every
+    // operation here is one that cannot error on any value these fields can
+    // hold, verified case by case against the emulator
+    // (scripts/verify-writes.mjs).
     function safetyRecorded(field) {
       let v = request.resource.data.get(field, null);
-      return v != null
-             && !(v is string && v.trim().size() == 0)
-             && !(v is list && v.size() == 0);
+      return v != null && v != '';
+    }
+
+    // approvedCropsBn is the only list among the seven, and an empty list is an
+    // absence — nothing was recorded, so it must not drag a source requirement
+    // in behind it. The `!= null` guard short-circuits before .size().
+    function cropsRecorded() {
+      let v = request.resource.data.get('approvedCropsBn', null);
+      return v != null && v.size() > 0;
     }
 
     function carriesSafetyFigures() {
@@ -142,12 +157,22 @@ service cloud.firestore {
              || safetyRecorded('reentryHours')
              || safetyRecorded('firstAidBn')
              || safetyRecorded('dosageBn')
-             || safetyRecorded('approvedCropsBn');
+             || cropsRecorded();
     }
 
+    // A whitespace-only string is not a source, and — unlike the six above — a
+    // whitespace-only FIGURE is treated as a value here rather than as an
+    // absence. That is a deliberate asymmetry with isRecorded() in
+    // products.js, which calls it an absence: the service can normalise it to
+    // null on the way in and does, so nothing that goes through the service
+    // ever reaches this rule as blank. The rules cannot rewrite a document,
+    // only refuse it, and a blank string stored verbatim is data to
+    // hasSafetyData() and an absence to the source check at the same time —
+    // which prints a panel of blanks under a blank source line. Refusing is the
+    // only move this side of the boundary has.
     function hasSafetySource() {
       let s = request.resource.data.get('safetySource', null);
-      return s is string && s.trim().size() > 0;
+      return s != null && s != '' && s.trim().size() > 0;
     }
 
     // All seven absent with no source is a legal write — it is how safety data

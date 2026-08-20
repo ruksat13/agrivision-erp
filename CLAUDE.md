@@ -26,7 +26,7 @@ read it before building a screen), [`docs/FIRESTORE-SCHEMA.md`](docs/FIRESTORE-S
 | `src/config/menu.js` | The menu tree, and the source of the permission path list. |
 | `firestore.rules` | Production Security Rules — where a control is actually enforced (§6). |
 | `firestore.indexes.json` | Composite indexes. A new scoped or ordered query usually needs one. |
-| `scripts/` | Seeding (`seed*.mjs`), verification (`verify.mjs`), the emulator harness (`dev-reset.mjs`, `emulator-rules.mjs`). |
+| `scripts/` | Seeding (`seed*.mjs`), verification (`verify.mjs`, `verify-rules.mjs`, `verify-writes.mjs`), the emulator harness (`dev-reset.mjs`, `emulator-rules.mjs`). |
 
 ---
 
@@ -98,7 +98,7 @@ you migrate those screens.
 5. **Indexes** for any new composite query.
 6. **Page.** Only now.
 
-**`firestore.rules` ends in a catch-all deny** ([line 462](firestore.rules:462)).
+**`firestore.rules` ends in a catch-all deny** ([line 541](firestore.rules:541)).
 A collection with no `match` block is refused every read and every write. It will
 look fine against the dev rules and be a dead screen the moment the real rules
 load. Skipping step 4 is the likeliest way to ship a broken screen here.
@@ -279,8 +279,15 @@ worst failure available here.
   twice for the same reason `OVERRIDE_ROLES` is: `phiDays: 0` and
   `reentryHours: 0` are figures a label states, so a falsy test lets the two
   most safety-critical numbers through unsourced, while `approvedCropsBn: []`
-  and a blank string are absences. `isRecorded()` in `products.js` and
-  `safetyRecorded()` in the rules are one predicate written twice — change both.
+  are absences. `isRecorded()` in `products.js` and `safetyRecorded()` in the
+  rules are the same predicate on either side of the boundary, and they agree on
+  everything except a **blank string**, deliberately: the service calls it an
+  absence and `storedValue()` normalises it to `null`, so nothing that goes
+  through the service reaches the rules blank. The rules cannot rewrite a
+  document, only refuse it, and `'   '` stored verbatim is data to
+  `hasSafetyData()` and an absence to the source check at once — a panel of
+  blanks under a blank source line. So they count it as a value and refuse.
+  Change one, think about the other; `npm run verify:writes` holds both.
 - **Placeholders are labelled twice**, in the code and on screen — see the banner
   above `SAFETY_DATA` in `scripts/seed-data.mjs`, and `bannedAuthority`, a stated
   placeholder pending a real DAE notification reference.
@@ -392,6 +399,25 @@ run: writes and their batches, roles with no seeded account, composite indexes,
 and whether a screen calls the function correctly. Read that list before treating
 a pass as wider proof than it is.
 
+### One write rule is checked, and only one
+
+```bash
+npm run verify:writes
+```
+
+`scripts/verify-writes.mjs` drives the `safetySource` provenance rule on
+`products` — the service guard and `safetyProvenanceHolds()` — in both
+directions. Unlike `verify:rules` it loads the real rules itself, re-seeds
+afterwards to undo its own writes, and leaves the dev rules back, so it cannot
+strand a half-mutated database. It is **not** wired into `dev:reset`; run it
+when you touch that rule.
+
+It is one rule's worth of cover, not a write harness, and it says so at the top
+of the file and at the end of every run. Every other write is still unchecked.
+If you add a write rule, this is the shape to copy — and read that header first,
+because a denial and an evaluation error are indistinguishable from the message
+this emulator returns, so assertions go on the outcome and never on the text.
+
 **Report what you actually observed, with the numbers.** Not "the stock report
 works" but "100 of AI-000730 sold at Head Office took Stock Report from 2,500 to
 2,400 with 100 in the Sell column". If you did not run it under the real rules,
@@ -428,6 +454,14 @@ taskkill /PID <pid> /T /F
 Then re-run `npm run dev:reset`. The emulator keeps nothing on disk, so an
 orphan costs only the ports — never try to reuse one, because its rules and its
 data are whatever the dead run left behind.
+
+**A session driven from a prompt cannot press Ctrl-C**, so for a non-interactive
+run that same `netstat` then `taskkill /PID <pid> /T /F` is the supported
+teardown rather than a workaround: it is what the SIGINT trap runs anyway, and
+`/T` is what takes the Java and `firebase-tools` children with it. Finish by
+re-running the `netstat` and confirming all four ports are free — an orphan is
+invisible until the next run fails with *"Is another emulator already
+running?"*, which reads exactly like a change having broken something.
 
 ---
 

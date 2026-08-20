@@ -165,17 +165,35 @@ Two details decided rather than defaulted, both about what "carries a value" mea
   truthiness test — the obvious way to write this in either language — waves exactly those two
   through with no source. `isRecorded()` and `safetyRecorded()` both test for absence explicitly.
 - **`approvedCropsBn: []` is an absence.** An empty list is nothing recorded, and must not drag a
-  source requirement in behind it. Same for a whitespace-only string.
+  source requirement in behind it.
+- **A blank string is an absence on one side of the boundary and a value on the other**, and that
+  asymmetry is the decision, not an oversight. The service calls `'   '` an absence *and*
+  `storedValue()` normalises it to `null`, so the pair is consistent and nothing blank is ever
+  stored through it. Security Rules cannot rewrite a document — only accept or refuse it — so
+  allowing a blank figure means storing it verbatim, and `hasSafetyData()` reads `'   '` as data:
+  the invoice then prints a panel of blanks under a blank source line, which is this control's own
+  failure reopened one layer down. The rules therefore count a blank figure as a value and refuse
+  it. The only caller that can hit the difference is one that never went through the service, which
+  is exactly who the rule is for.
 
 Clearing safety data — all seven null with a null source — stays legal, deliberately. It is the
 "empty beats plausible" path, and a control that made honesty harder than invention would be
 backwards. `safetySource` is required *by the figures*, never on its own.
 
 The cost is the usual one for a rule that Security Rules cannot import: `isRecorded()` in
-`products.js` and `safetyRecorded()` in `firestore.rules` are one predicate written twice, exactly
-like `OVERRIDE_ROLES` and `canOverrideRules()`. Changing one without the other is a real bug in
-either direction — silently unsourced figures, or a Product page button that only produces
-`permission-denied`.
+`products.js` and `safetyRecorded()` in `firestore.rules` are the same predicate written twice,
+exactly like `OVERRIDE_ROLES` and `canOverrideRules()`, and they differ on one case for the reason
+above. Changing one without thinking about the other is a real bug in either direction — silently
+unsourced figures, or a Product page button that only produces `permission-denied`.
+
+`scripts/verify-writes.mjs` exists because nothing else would catch that. It is not a write harness:
+it covers this one rule and says so at the top and at the end of every run. What it explicitly
+cannot catch is an evaluation error inside the predicate — in this engine `error || true` is `true`,
+so an error is absorbed whenever a source is present and denies whenever one is absent, behaving
+correctly by luck while every case passes. That is why the rules-side predicate uses no `is string`
+or `is list` test and only operations that cannot error on any value these fields can hold; ruling
+it out took probe rulesets asserting each sub-expression is TRUE, since a denial cannot be told from
+an error by its message.
 
 ---
 

@@ -36,9 +36,13 @@ any of the seven Feature 3 fields with no source is refused by
 and `createProduct()` — it used to be refused only by the Product page dialog,
 which is `CLAUDE.md` §6's "enforced only in the UI" failure mode on the one
 field §7 says matters most. `phiDays: 0` counts as a figure and demands a
-source; `approvedCropsBn: []` and a blank string do not; clearing all seven with
-a null source stays legal. Checked under the real rules across 21 write cases in
-both directions, which is more than `verify:rules` can cover — see below.
+source; `approvedCropsBn: []` does not; clearing all seven with a null source
+stays legal. A **blank string** is an absence to the service, which normalises
+it to `null`, and a value to the rules, which cannot normalise and so refuse it
+— stored verbatim it would be data to `hasSafetyData()` and an absence to the
+source check at once, which prints a panel of blanks under a blank source line.
+`npm run verify:writes` holds all 25 cases and switches the rules and re-seeds
+around itself.
 
 **Credit limit, as a fourth thing the engine refuses.** `creditLimitRule` joined
 `licenceRule` and `bannedRule` on 20 August — three rules registered now. It is a
@@ -107,12 +111,9 @@ Roughly in the order it matters:
    entry — and under the real rules only a Super Admin may update `users`, so it
    cannot work for anyone else. It is the last service-layer bypass; `Navbar.js`
    lost its read on 19 August.
-2. **`scripts/verify-rules.mjs` covers reads only.** Writes and the batches
-   behind them are unchecked, and a batch fails whole. The `products`
-   provenance rule was verified by hand against the emulator because nothing in
-   the harness could do it; the next write rule will need the same, or a
-   `verify:writes` alongside it. Every run prints its own list of gaps — read it
-   rather than trusting the green line.
+2. **One write rule is checked, and no others.** `verify:writes` covers the
+   safety-provenance rule on `products`; every other write and the batches
+   behind them are unchecked, and a batch fails whole.
 3. **Damage and Sales Return should move stock**, per above.
 4. **The 40 report routes.** `SCREEN-AUDIT.md` §7 decision 1 keeps 8 and takes
    the other 32 out of the menu. The menu still lists all 40, and 38 of them
