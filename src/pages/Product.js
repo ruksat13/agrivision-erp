@@ -174,6 +174,13 @@ function SafetyModal({ product, onCancel, onConfirm, onClear, busy }) {
         signalWordBn: prev.signalWordBn || SIGNAL_WORD_BN[whoClass] || '',
     }));
 
+    // Every field here is form state, so every field is a STRING — which is the
+    // only reason a truthiness test is safe on the two numbers. A pre-harvest
+    // interval of zero is held as `'0'`, which is truthy, so it demands a source
+    // like any other recorded figure; as a number it would be falsy and would
+    // slip through. `approvedCropsBn` is text, so an empty list arrives as `''`
+    // and correctly counts as nothing recorded. If these ever become numeric
+    // state, this line has to become isRecorded() from services/products.js.
     const anything = Boolean(
         f.whoClass || f.signalWordBn.trim() || f.phiDays || f.reentryHours
         || f.firstAidBn.trim() || f.dosageBn.trim() || f.approvedCropsBn.trim(),

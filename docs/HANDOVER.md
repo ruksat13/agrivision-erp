@@ -30,6 +30,16 @@ under the real rules, and leaves the emulator on the dev rules.
   is no data. The two products that carry data carry **placeholder** data and say
   so in print — see *Blocked* below.
 
+**`safetySource` is enforced on the server.** As of 20 August a product carrying
+any of the seven Feature 3 fields with no source is refused by
+`firestore.rules` (`safetyProvenanceHolds()`) as well as by `setSafetyData()`
+and `createProduct()` — it used to be refused only by the Product page dialog,
+which is `CLAUDE.md` §6's "enforced only in the UI" failure mode on the one
+field §7 says matters most. `phiDays: 0` counts as a figure and demands a
+source; `approvedCropsBn: []` and a blank string do not; clearing all seven with
+a null source stays legal. Checked under the real rules across 21 write cases in
+both directions, which is more than `verify:rules` can cover — see below.
+
 **Credit limit, as a fourth thing the engine refuses.** `creditLimitRule` joined
 `licenceRule` and `bannedRule` on 20 August — three rules registered now. It is a
 **block**, because only a block gates the save and only a block writes a
@@ -98,24 +108,21 @@ Roughly in the order it matters:
    cannot work for anyone else. It is the last service-layer bypass; `Navbar.js`
    lost its read on 19 August.
 2. **`scripts/verify-rules.mjs` covers reads only.** Writes and the batches
-   behind them are unchecked, and a batch fails whole. Every run prints its own
-   list of gaps — read it rather than trusting the green line.
-3. **`safetySource` is enforced only in the UI.** `Product.js:181` refuses to
-   save safety figures without a source; `setSafetyData()` does not, and
-   `firestore.rules` says nothing about it. That is `CLAUDE.md` §6's "enforced
-   only in the UI" failure mode on the one field §7 says matters most, and
-   `CLAUDE.md` §7 currently claims the service layer refuses it. Fix the code,
-   then the sentence.
-4. **Damage and Sales Return should move stock**, per above.
-5. **The 40 report routes.** `SCREEN-AUDIT.md` §7 decision 1 keeps 8 and takes
+   behind them are unchecked, and a batch fails whole. The `products`
+   provenance rule was verified by hand against the emulator because nothing in
+   the harness could do it; the next write rule will need the same, or a
+   `verify:writes` alongside it. Every run prints its own list of gaps — read it
+   rather than trusting the green line.
+3. **Damage and Sales Return should move stock**, per above.
+4. **The 40 report routes.** `SCREEN-AUDIT.md` §7 decision 1 keeps 8 and takes
    the other 32 out of the menu. The menu still lists all 40, and 38 of them
    render the same sales table.
-6. **The remaining sample-data screens**, cheapest first: `Categories`,
+5. **The remaining sample-data screens**, cheapest first: `Categories`,
    `Settings`, `Mapping` — all masters other screens would select from.
-7. **Two screens still call `toISOString()`** (`CashCollection.js:3`,
+6. **Two screens still call `toISOString()`** (`CashCollection.js:3`,
    `SupplierPurchase.js:37`). Banned everywhere else; fix them when those
    screens are migrated.
-8. **`Notice` exists three times.** `Product.js` and `SalesEntry.js` carry
+7. **`Notice` exists three times.** `Product.js` and `SalesEntry.js` carry
    copies from before it was extracted.
 
 ---

@@ -67,6 +67,11 @@ export async function productOptions(filter = {}) {
  * createProduct({ code, name, category, unitId, packSize, packQty, type,
  *                 cartonQty, mrp, ... })
  * The product code becomes the document ID.
+ *
+ * The Product page's form collects no safety figures, but this takes the whole
+ * document, so a caller could pass them — and `firestore.rules` refuses a
+ * product carrying figures with no source on create as well as on update.
+ * assertSafetyProvenance() below keeps this path from reaching that refusal.
  */
 export async function createProduct(input) {
     requireFields(input, ['code', 'name', 'category', 'unitId', 'packSize', 'type', 'mrp'], 'createProduct');
@@ -87,6 +92,8 @@ export async function createProduct(input) {
         status: input.status ?? 'Active',
     };
     assertEnum(data.status, STATUS, 'status');
+    data.safetySource = cleanSource(data.safetySource);
+    assertSafetyProvenance(data, 'createProduct');
     return createDoc(COL.PRODUCTS, data, { id: input.code });
 }
 
@@ -172,6 +179,74 @@ export async function listBannedProducts() {
 
 // ── Feature 3 — Bengali safety panel ──────────────────────────────────────
 
+/** The seven figures §4.1 groups under Feature 3. `safetySource` is not one of
+ *  them — it is the provenance the seven require. */
+const SAFETY_FIELDS = [
+    'whoClass', 'signalWordBn', 'phiDays', 'reentryHours',
+    'firstAidBn', 'dosageBn', 'approvedCropsBn',
+];
+
+/**
+ * Does this field carry a recorded value?
+ *
+ * Deliberately not `Boolean(v)`. Two of the seven fail a truthiness test in
+ * opposite directions:
+ *
+ *   phiDays: 0, reentryHours: 0  are *recorded figures* — "harvest the same
+ *       day", "re-entry immediately" are things a label says, and they are the
+ *       readings a reader most needs to be able to trust. A falsy test would
+ *       let them through with no source.
+ *   approvedCropsBn: []          is an *absence*. Nothing was recorded; an
+ *       empty list must not drag a source requirement in behind it.
+ *
+ * A whitespace-only string is an absence too, on the same reasoning that
+ * `safetySource` of "   " is not a source.
+ */
+const isRecorded = (v) => {
+    if (v == null) return false;
+    if (Array.isArray(v)) return v.length > 0;
+    if (typeof v === 'string') return v.trim() !== '';
+    return true;                              // numbers, 0 included
+};
+
+/**
+ * The value as it should be STORED: whatever isRecorded() calls an absence is
+ * written as `null`, per §4.1's "write null, do not omit". A blank string left
+ * in the document would be an absence to this file and to `firestore.rules` but
+ * a value to `hasSafetyData()`, which would print a panel of blanks under a
+ * blank source line — the exact page this whole control exists to prevent.
+ */
+const storedValue = (v) => {
+    if (!isRecorded(v)) return null;
+    return typeof v === 'string' ? v.trim() : v;
+};
+
+/** The trimmed source, or null when there is not one. */
+const cleanSource = (v) => (typeof v === 'string' && v.trim() ? v.trim() : null);
+
+/**
+ * No safety figure without a stated source (§9, CLAUDE.md §7).
+ *
+ * Called on both write paths that can put figures on a product, because this is
+ * a control and not a form validation: `firestore.rules` refuses the same
+ * document, so a caller that got past here would only reach a raw
+ * permission-denied on screen. Clearing safety data — all seven absent, no
+ * source — stays legal, and is the "empty beats plausible" path.
+ */
+function assertSafetyProvenance(data, where) {
+    if (cleanSource(data.safetySource)) return;
+    const carried = SAFETY_FIELDS.filter(f => isRecorded(data[f]));
+    if (!carried.length) return;
+    throw new ServiceError(
+        'VALIDATION',
+        `${where}: safety figures cannot be saved without a source. `
+        + `Say where ${carried.join(', ')} came from — a photographed label, a `
+        + `leaflet, or "PLACEHOLDER" if these are demonstration figures. `
+        + `The invoice prints that line verbatim.`,
+        { fields: carried },
+    );
+}
+
 /**
  * setSafetyData('AI-000730', { whoClass, signalWordBn, phiDays, reentryHours,
  *                              firstAidBn, dosageBn, approvedCropsBn, safetySource })
@@ -185,20 +260,29 @@ export async function listBannedProducts() {
  * leaflet, or a placeholder. It is not decoration. §9 of the schema doc is
  * entirely about where these fields come from, and the panel prints this line
  * whatever it says, so demonstration data cannot be mistaken on a printed page
- * for something read off a container.
+ * for something read off a container. A call carrying any of the seven with no
+ * source is refused here and again by `firestore.rules`; the second one is the
+ * control (CLAUDE.md §6).
+ *
+ * An absence is normalised to `null` on the way in — a blank string and an
+ * empty crop list are both "nothing recorded", and storing either as itself
+ * would leave a document the panel treats as data and the source check treats
+ * as empty.
  */
 export async function setSafetyData(code, safety) {
     if (safety.whoClass) assertEnum(safety.whoClass, WHO_CLASS, 'whoClass');
-    return updateProduct(code, {
-        whoClass: safety.whoClass ?? null,
-        signalWordBn: safety.signalWordBn ?? null,
+    const block = {
+        whoClass: storedValue(safety.whoClass),
+        signalWordBn: storedValue(safety.signalWordBn),
         phiDays: safety.phiDays == null ? null : toNumber(safety.phiDays, 'phiDays'),
         reentryHours: safety.reentryHours == null ? null : toNumber(safety.reentryHours, 'reentryHours'),
-        firstAidBn: safety.firstAidBn ?? null,
-        dosageBn: safety.dosageBn ?? null,
-        approvedCropsBn: safety.approvedCropsBn ?? null,
-        safetySource: safety.safetySource ?? null,
-    });
+        firstAidBn: storedValue(safety.firstAidBn),
+        dosageBn: storedValue(safety.dosageBn),
+        approvedCropsBn: storedValue(safety.approvedCropsBn),
+        safetySource: cleanSource(safety.safetySource),
+    };
+    assertSafetyProvenance(block, 'setSafetyData');
+    return updateProduct(code, block);
 }
 
 /**

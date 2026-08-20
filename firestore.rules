@@ -106,13 +106,67 @@ service cloud.firestore {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
     }
 
+    // ── Feature 3 — no safety figure without a stated source ─────────────
+    //
+    // FIRESTORE-SCHEMA.md §4.1 and §9: whoClass, signalWordBn, phiDays,
+    // reentryHours, firstAidBn, dosageBn and approvedCropsBn come off a
+    // container label, and SafetyPanel prints `safetySource` on the dealer's
+    // invoice underneath them. Figures with a blank source line are the exact
+    // failure §9 was written to prevent, and this system prints them as
+    // regulatory claims.
+    //
+    // The Product page dialog already refuses to save them, and so does
+    // setSafetyData() — but neither runs for a caller who never went through
+    // the screen. THIS is the control (CLAUDE.md §6), the same shape as
+    // canOverrideRules() above.
+    //
+    // Reads request.resource.data, which on an update is the MERGED document —
+    // so an unrelated update to a product that already holds figures and a
+    // source still passes, because both survive the merge.
+
+    // A field carries a recorded value when it is present and is not an empty
+    // container. NOT a truthiness test: `phiDays: 0` and `reentryHours: 0` are
+    // figures a label states and a reader relies on, while `approvedCropsBn:
+    // []` and a whitespace-only string are absences.
+    function safetyRecorded(field) {
+      let v = request.resource.data.get(field, null);
+      return v != null
+             && !(v is string && v.trim().size() == 0)
+             && !(v is list && v.size() == 0);
+    }
+
+    function carriesSafetyFigures() {
+      return safetyRecorded('whoClass')
+             || safetyRecorded('signalWordBn')
+             || safetyRecorded('phiDays')
+             || safetyRecorded('reentryHours')
+             || safetyRecorded('firstAidBn')
+             || safetyRecorded('dosageBn')
+             || safetyRecorded('approvedCropsBn');
+    }
+
+    function hasSafetySource() {
+      let s = request.resource.data.get('safetySource', null);
+      return s is string && s.trim().size() > 0;
+    }
+
+    // All seven absent with no source is a legal write — it is how safety data
+    // is CLEARED, and clearing is the honest outcome when nothing can be backed
+    // (CLAUDE.md §7). safetySource is required by the figures, never on its own.
+    function safetyProvenanceHolds() {
+      return !carriesSafetyFigures() || hasSafetySource();
+    }
+
     // ── Master data ──────────────────────────────────────────────────────
     // Readable by anyone signed in: the sale rules need product categories and
     // the invoice needs product names.
 
     match /products/{productId} {
       allow read:   if active();
-      allow create, update: if isSuperAdmin();
+      // An ADDITIONAL condition on the Super Admin write, not a replacement:
+      // owning the catalogue does not include the authority to print an
+      // unsourced regulatory claim on a dealer's invoice.
+      allow create, update: if isSuperAdmin() && safetyProvenanceHolds();
       allow delete: if false;                       // deactivate instead
     }
 

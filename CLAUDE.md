@@ -264,11 +264,23 @@ worst failure available here.
   nothing recorded prints a visible "safety data not recorded" marker
   (`MissingSafety` in `SafetyPanel.js`) — honest, and Feature 3's own third
   requirement. Empty beats plausible.
-- **Provenance is mandatory and printed.** `setSafetyData()` refuses figures with
-  no `safetySource`, and `SafetyPanel` prints that line on every invoice *even
-  when it is unflattering*. The two seeded products carry
-  `safetySource: PLACEHOLDER_SOURCE`, so a printed copy says on its face that its
-  figures are demonstration data.
+- **Provenance is mandatory and printed**, and it is enforced in three places —
+  the same shape as the override in §6, so only the last one counts.
+  `Product.js` disables Save while any of the seven fields carries a value and
+  the Source box is empty; `setSafetyData()` and `createProduct()` throw a
+  `ServiceError` on the same condition; and **`firestore.rules` refuses the
+  `products` write itself** (`safetyProvenanceHolds()`), which is what holds for
+  a caller who never went through the screen. `SafetyPanel` then prints that
+  line on every invoice *even when it is unflattering*. The two seeded products
+  carry `safetySource: PLACEHOLDER_SOURCE`, so a printed copy says on its face
+  that its figures are demonstration data.
+
+  What counts as "carries a value" is the part to get right, and it is written
+  twice for the same reason `OVERRIDE_ROLES` is: `phiDays: 0` and
+  `reentryHours: 0` are figures a label states, so a falsy test lets the two
+  most safety-critical numbers through unsourced, while `approvedCropsBn: []`
+  and a blank string are absences. `isRecorded()` in `products.js` and
+  `safetyRecorded()` in the rules are one predicate written twice — change both.
 - **Placeholders are labelled twice**, in the code and on screen — see the banner
   above `SAFETY_DATA` in `scripts/seed-data.mjs`, and `bannedAuthority`, a stated
   placeholder pending a real DAE notification reference.

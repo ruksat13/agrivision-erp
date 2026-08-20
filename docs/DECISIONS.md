@@ -140,13 +140,42 @@ killed the Booked column on Stock Report, the brands in `be13770` that no produc
 and the Navbar's "৳ 82,000 / Cash" chip — nothing in this system stores a cash position. A control
 that cannot be backed is removed, not left dead.
 
-> **Known gap, and it fails this project's own test.** The "no figures without a source" requirement
-> is enforced **only in the Product page dialog** — `Product.js:181`, `ready = !anything ||
-> f.safetySource.trim()`. `setSafetyData()` writes `safetySource: safety.safetySource ?? null` with
-> no guard, and `firestore.rules` says nothing about it. By the standard in `CLAUDE.md` §6 that is a
-> UI gate, not a control: a caller who does not go through the screen can write safety figures with
-> no provenance, and the invoice will print them under a blank source line. `CLAUDE.md` §7 currently
-> states that `setSafetyData()` refuses them, which is not what the code does.
+### The source requirement is enforced on the server, not in the dialog
+
+For a while "no figures without a source" lived **only** in the Product page dialog — `Product.js`,
+`ready = !anything || f.safetySource.trim()`. `setSafetyData()` wrote `safety.safetySource ?? null`
+with no guard and `firestore.rules` said nothing about it, so a caller who never opened the screen
+could write a WHO class, a pre-harvest interval and first-aid text with no provenance, and the
+invoice would print them under a blank source line. By the standard in `CLAUDE.md` §6 that is a UI
+gate, not a control — on the one field §9 says matters most.
+
+It now sits in the same four-place shape as the override above, and for the same reason:
+
+| Where | What it does |
+|---|---|
+| `Product.js` — `anything` / `ready` | Disables Save and asks "Where did these come from?". **Convenience.** |
+| `products.js` — `assertSafetyProvenance()` | `setSafetyData()` and `createProduct()` throw `ServiceError('VALIDATION')`, naming the fields that need a source. **Convenience.** |
+| `products.js` — `storedValue()` | Normalises an absence to `null` on the way in, so a blank string cannot be data to `hasSafetyData()` and absence to the source check at the same time. |
+| `firestore.rules` — `products` create/update, via `safetyProvenanceHolds()` | Refuses the document itself unless a non-blank `safetySource` accompanies the figures. **This is the control.** |
+
+Two details decided rather than defaulted, both about what "carries a value" means:
+
+- **`phiDays: 0` and `reentryHours: 0` are values.** "Harvest the same day", "re-entry immediately"
+  are things a container states, and they are the two readings a reader most needs to trust. A
+  truthiness test — the obvious way to write this in either language — waves exactly those two
+  through with no source. `isRecorded()` and `safetyRecorded()` both test for absence explicitly.
+- **`approvedCropsBn: []` is an absence.** An empty list is nothing recorded, and must not drag a
+  source requirement in behind it. Same for a whitespace-only string.
+
+Clearing safety data — all seven null with a null source — stays legal, deliberately. It is the
+"empty beats plausible" path, and a control that made honesty harder than invention would be
+backwards. `safetySource` is required *by the figures*, never on its own.
+
+The cost is the usual one for a rule that Security Rules cannot import: `isRecorded()` in
+`products.js` and `safetyRecorded()` in `firestore.rules` are one predicate written twice, exactly
+like `OVERRIDE_ROLES` and `canOverrideRules()`. Changing one without the other is a real bug in
+either direction — silently unsourced figures, or a Product page button that only produces
+`permission-denied`.
 
 ---
 
