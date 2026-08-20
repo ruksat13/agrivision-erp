@@ -1,7 +1,16 @@
 # AgriVision ERP — Screen Audit
 
-**Date:** 13 August 2026 · **Companion to:** `PROJECT-OUTLINE.md`, `UNIQUE-FEATURES.md`
-**Scope of audit:** all 55 files under `src/`, all 93 routes in `App.js`, all 93 menu leaves in `config/menu.js`
+**Date:** 13 August 2026 · **Last recounted:** 20 August 2026
+**Companion to:** `PROJECT-OUTLINE.md`, `UNIQUE-FEATURES.md`
+**Scope of audit:** everything under `src/`, every route in `App.js`, every leaf in `config/menu.js`
+
+**The counts as they stand today:** ~~55 files under `src/`~~ **88 JavaScript files** (92 including
+CSS and assets); ~~93 routes~~ **101 `path=` entries in `App.js`** — 99 screens plus `/login` and the
+`/*` catch-all; ~~93 menu leaves~~ **97 leaves under 10 parents in `config/menu.js`**. Net +33 files:
+35 added — `src/services/` (23), `src/rules/` (4), three shared components (`Notice`,
+`LicenceBadge`, `SafetyPanel`) and five pages (`SalesEntry`, `ComplianceReport`, `AuditLog`,
+`OpeningBalance`, `Commission`) — against `Inventory.js` and `Accounts.js` deleted. The percentages
+below are recomputed against 97, not 93.
 
 ---
 
@@ -11,13 +20,18 @@
 rules as the remaining work. Reading the page implementations closely shows that the presentation
 layer is **not** complete in the sense that word implies:
 
-- **Roughly 25 screens offer no working way to enter data.** Fourteen of them render a full form
-  whose Save button has no handler at all.
+- ~~**Roughly 25 screens offer no working way to enter data.** Fourteen of them render a full form
+  whose Save button has no handler at all.~~ **The fourteen were resolved on 16 August** (§2.1), and
+  Sales Entry was built on the 15th. About nine remain — see the recount at the end of §2.4.
 - **38 of the 40 report screens render the same four rows of sales data.** Thirty-two of those are
-  identical apart from the heading text — that is 41% of the 93 screens in the menu.
-- **No screen is connected to any other.** Every page holds its own hardcoded `const` array; selling
+  identical apart from the heading text — ~~41% of the 93 screens~~ **39% of the 97 leaves** in the
+  menu. Still true; §7 decision 1 is the answer and has not been carried out.
+- ~~**No screen is connected to any other.** Every page holds its own hardcoded `const` array; selling
   does not reduce stock, a return does not credit a ledger, and two disjoint sets of master data
-  are in circulation.
+  are in circulation.~~ **No longer true.** 24 of the 47 page files read Firestore; selling moves
+  stock and the dealer's balance in one batch; products, customers and suppliers are each one set.
+  What survives of this finding is narrower and named in §4: the three ledgers are not fed, Damage
+  and Sales Return still do not move stock, and the employee lists are still three lists.
 
 None of this contradicts the project's plan — it sharpens it. The order of work in
 `INTERNAL-PLAN.md` §2 is still correct; this document identifies which gaps must be closed *before*
@@ -28,6 +42,10 @@ the Firestore schema is fixed and which can safely follow.
 > `Sales.js:429` carries an "+ Add" button with no `onClick`, and nothing persists. By the team's own
 > rule, feature work stops here and everyone moves to persistence. The priorities in §6 below assume
 > exactly that.
+>
+> **Met 15 August**, two days late. `SalesEntry.js` sits behind that button; the order it wrote was
+> read back from the database with its stock movement and the dealer's balance moved with it. The
+> 20 August cut-line was cleared the same day, five days early.
 
 ---
 
@@ -121,7 +139,11 @@ Firestore collections without settling them migrates the confusion into the data
 ### 2.4 Screens with no add path at all, by design
 
 - `src/pages/CancelSales.js` — **the screen contains no action that cancels anything.** It is a
-  read-only list with an invoice viewer
+  read-only list with an invoice viewer. Still true; `cancelSale()` exists in `sales.js` and this
+  screen does not call it. ~~Its tab badges read Confirm 47 and Delivered 21121 against seventeen
+  rows~~ **badges resolved 19 August** — counted from the rows the table renders. Its seventeen
+  sample invoice numbers were also the seed's own numbers, so the same invoice showed one dealer
+  here and another on `/sales`; they were moved into a `0099xxx` range the counter cannot reach
 - `src/pages/Employee.js:44-92` (Employee Target) — no form assigns a target; values are read from
   `initialEmployees[].target`
 - StockReport, CentralStockReport, CustomerLedger, SupplierLedger, EmployeeAccount — correctly have
@@ -131,7 +153,10 @@ Firestore collections without settling them migrates the confusion into the data
   (see §4)
 - The 40 Reports routes — correctly have no add path
 
-**Total: 14 (dead Save) + 5 (no form) + 6 (wrong shape) ≈ 25 screens with no working data entry.**
+~~**Total: 14 (dead Save) + 5 (no form) + 6 (wrong shape) ≈ 25 screens with no working data entry.**~~
+**Now ≈ 9.** All fourteen dead Saves were resolved on 16 August; Sales Entry, the one that mattered,
+was built on 15 August; and the License Category form was resolved on 19 August. What is left is the
+four HR forms and the wrong-shaped Mapping and SMS Campaign forms.
 
 ---
 
@@ -319,7 +344,7 @@ Two further details:
 | `HR.js` | 4 | Yes — four distinct datasets (`:4-24`) | Content fine, but **none of the four can add a record** |
 | `Mapping.js` | 3 | Yes | One shared, wrong-shaped form for all three |
 | `SMS.js` | 3 | Yes | Campaign screen opens the SMS form |
-| `License.js` | 2 | Yes | Category screen opens the License form |
+| `License.js` | ~~2~~ **3** | Yes | ~~Category screen opens the License form~~ **Resolved 19 August** — company, dealer and a read-only Category reference (decision 3) |
 | `Employee.js` | 2 | Yes — separate render paths | Target uses `Math.random()` |
 | `Sales.js` | 1 | — | The `type` prop is vestigial: the `icons` map holds four keys (`:356`) but `App.js` only ever passes `"Sales"`; the other three are separate files |
 
@@ -330,9 +355,9 @@ Two further details:
 | Reports identical apart from the heading | 32 |
 | Reports with the same table plus one chart | 6 |
 | **Effectively duplicate screens** | **38** |
-| Screens in the menu | 93 |
-| **Share** | **41%** |
-| Separately: orphan files (`Inventory.js`, `Accounts.js`) | 2 files, 334 lines |
+| Leaves in the menu | ~~93~~ **97** |
+| **Share** | ~~41%~~ **39%** |
+| Separately: orphan files (`Inventory.js`, `Accounts.js`) | ~~2 files, 334 lines~~ **deleted** |
 
 **Effort:** building real datasets for all 40 → **~5.5 person-days**. Keeping 8 real reports and
 removing the other 32 from the menu → **~1.5 person-days**.
@@ -364,6 +389,8 @@ exposes the wrong shapes, so it belongs before the schema is written. Task 5 pre
 `batchNo` design in `Inventory.js` from re-entering the model.
 
 **Exit test, 18 August:** create a sale on the new screen, refresh the browser, the sale is still there.
+**Passed 15 August.** Tasks 1, 2, 3 and 5 are done; task 4 is two-thirds done — the License form was
+fixed on 19 August, Mapping and SMS are still wrong-shaped.
 
 ### 6.2 P1 — same pass as Firestore, or the work is done twice (19–25 August)
 
@@ -377,6 +404,10 @@ exposes the wrong shapes, so it belongs before the schema is written. Task 5 pre
 
 **Exit test, 25 August:** a sale to a dealer with an expired licence is refused on screen; an override
 is written to the audit log with its reason; after a sale, Stock Report shows the reduced quantity.
+**All three passed by 19 August.** Task 6 done, task 8 done, task 7 done bar Damage and Sales Return.
+Tasks 9 (the customer ledger from real transactions) and 10 (the four HR forms) are **not** done;
+task 9 is the largest thing still outstanding in this section, because the ledger screens show
+invented rows beside a master balance that is real, and the two disagree.
 
 ### 6.3 P2 — if time allows (26–30 August; hard freeze on the 30th)
 
@@ -390,12 +421,12 @@ is written to the audit log with its reason; after a sale, Stock Report shows th
 
 ### 6.4 Cut outright
 
-| Cut | Reason |
-|---|---|
-| Feature 4 (expired-stock block) | Already conditional in `INTERNAL-PLAN.md` §6; `Batch.js` provides no lot identity, and three days are not available |
-| Dashboard from real data (1 d) | Hardcoded figures are not visible in a demonstration; spend the day on Feature 1 |
-| Connecting Cancel Sales to Sales (1 d) | Not in the demonstration sequence |
-| Real datasets for all 40 reports (5.5 d) | The most expensive item relative to visible benefit |
+| Cut | Reason | Held? |
+|---|---|---|
+| Feature 4 (expired-stock block) | Already conditional in `INTERNAL-PLAN.md` §6; `Batch.js` provides no lot identity, and three days are not available | **Held.** Permanently dropped, and `UNIQUE-FEATURES.md` §5 now says so |
+| ~~Dashboard from real data (1 d)~~ | ~~Hardcoded figures are not visible in a demonstration; spend the day on Feature 1~~ | **Reversed 19 August.** It was built after all, and it had to be: it carries Feature 1 part 3, the licence expiry panel, so the cut was costing a feature part rather than a day |
+| Connecting Cancel Sales to Sales (1 d) | Not in the demonstration sequence | **Held.** `cancelSale()` exists in the service layer; the screen still does not call it |
+| Real datasets for all 40 reports (5.5 d) | The most expensive item relative to visible benefit | **Held**, and decision 1 is the replacement |
 
 ---
 
@@ -423,7 +454,7 @@ The resulting data model is specified in `FIRESTORE-SCHEMA.md`.
 
 ## 8. Progress against this audit
 
-Updated 19 August 2026. Findings above are struck through where they no longer hold.
+Updated 20 August 2026. Findings above are struck through where they no longer hold.
 
 | Finding | State |
 |---|---|
@@ -440,6 +471,11 @@ Updated 19 August 2026. Findings above are struck through where they no longer h
 | §5 — 38 of 40 reports identical | Outstanding; decision 1 above stands |
 | §4.4 — Dashboard is entirely hardcoded | **Resolved 19 August.** See the struck row in §4.4. It also carries Feature 1 part 3, the licence expiry panel `UNIQUE-FEATURES.md` §5 promised and no screen rendered |
 | §2.3, §3 item 2, §7 decision 3 — the License screen | **Resolved 19 August**, all three together. Three routes off one component, reading `licences`; a create / edit / renew form, which did not exist anywhere in the app before — dealer licences existed only because the seed wrote them |
+| §8 below — `Sales.js` offered writes a Sales Officer is refused | **Resolved 20 August.** Change Status, the next-status tick and the Cancel bin are gated on `SALE_UPDATE_ROLES`, and a read-only role gets a caption naming the missing authority rather than a `permission-denied` on the page. "+ Add" stays, gated on `hasAccess('/sales-entry')` — raising the order is the officer's own job |
+| Not in the original audit — `Navbar.js` | **Resolved 20 August.** The "৳ 82,000 / Cash" chip is gone (nothing stores a cash position), five invented notifications and their unread badge are gone, and the office button reads `users/{uid}.officeId` through `officeLabel()` instead of showing everyone "Head Office". Its direct `getDoc` on `users/` went with them; `Profile.js` is now the only service-layer bypass, and the worse one, because it writes |
+| Not in the original audit — the sale rule engine | **Three rules registered as of 20 August**, not two: `licenceRule`, `bannedRule`, `creditLimitRule`. `registeredRuleCount()` is on screen so an empty engine is visible rather than silent |
+| §2.4 — `CancelSales` tab badges | **Resolved 19 August.** Counted from the rows rendered. The screen still has no cancel action; `cancelSale()` exists and nothing calls it |
+| §3 item 6, §5.2 — `Employee.js:59` achievement is `Math.random()` | Outstanding, and now recorded in `UNIQUE-FEATURES.md` §4 as an `N` rather than a claimed capability |
 
 ### The Dashboard and the License screen, 19 August
 
@@ -517,11 +553,15 @@ through. The filter vanished and the query became "every product". It has no
 caller, so nothing was displaying it, but it is Feature 2 point 4's register. It
 filters in memory now.
 
-Found and **not** fixed, because it is a write and this pass was reads:
+~~Found and **not** fixed, because it is a write and this pass was reads:
 `Sales.js` offers Change Status and Cancel to whoever opens it, but
 `allow update` on `sales` is `isAdmin() || myArea(...)` — a Sales Officer is
-refused. That is §6's "shown but refused by the server", and it needs the same
-treatment `SalesEntry.js` gives the Override button.
+refused.~~ **Fixed 20 August**, with exactly the treatment `SalesEntry.js` gives
+the Override button: the three controls are gated on `SALE_UPDATE_ROLES` and the
+absence is captioned. `SALE_UPDATE_ROLES` is the fourth list kept in step with
+`firestore.rules` by hand, after `OVERRIDE_ROLES` and `LICENCE_WRITE_ROLES`, and
+is deliberately separate from `OVERRIDE_ROLES` — waiving a blocking rule and
+editing a saved invoice are not the same authority.
 
 Found while doing it, and fixed — **not a Dashboard bug**:
 
