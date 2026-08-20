@@ -1,6 +1,6 @@
 # Handover — where this project stands
 
-**Updated 20 August 2026.** State only. The conventions are in
+**Updated 21 August 2026.** State only. The conventions are in
 [`CLAUDE.md`](../CLAUDE.md); how to run it is in [`README.md`](../README.md); the
 reasoning behind the choices is in [`DECISIONS.md`](DECISIONS.md). Nothing here is
 repeated from any of them — if you are about to undo something, read `DECISIONS.md`
@@ -41,8 +41,23 @@ stays legal. A **blank string** is an absence to the service, which normalises
 it to `null`, and a value to the rules, which cannot normalise and so refuse it
 — stored verbatim it would be data to `hasSafetyData()` and an absence to the
 source check at once, which prints a panel of blanks under a blank source line.
-`npm run verify:writes` holds all 25 cases and switches the rules and re-seeds
+`npm run verify:writes` holds those cases and switches the rules and re-seeds
 around itself.
+
+**`/profile` works, for everybody, and writes through the service layer.** As
+of 21 August a signed-in user may change their own `name` and `phone`, and
+nothing else on their `users/` document — `role`, `permissions`, `areaId`,
+`territoryId`, `status`, `email` and the rest are still Super Admin only. That
+reverses `FIRESTORE-SCHEMA.md` §7's flat "users: Super Admin only"; §7 and §4.7
+now say so and `DECISIONS.md` records why. Before this the screen called
+`doc`/`getDoc`/`setDoc` on `users` itself — the **last service-layer bypass**,
+which meant no audit entry on the collection that decides everyone's authority,
+and a Save button eleven of the twelve logins could press and never succeed
+with. No file in `src/pages/` imports `firebase/firestore` now. The control is
+`editingOwnProfile()` in `firestore.rules`, and it compares against
+`resource.data`, so an unchanged field sent alongside a changed `role` does not
+make the write legal and a `setDoc()` dropping the other nine fields is refused
+too.
 
 **Credit limit, as a fourth thing the engine refuses.** `creditLimitRule` joined
 `licenceRule` and `bannedRule` on 20 August — three rules registered now. It is a
@@ -57,11 +72,13 @@ enforced rather than displayed.
 opening), the dealer and supplier ledgers' balances, invoice numbering from
 atomic counters, and an append-only audit log that every write goes through.
 
-**Numbers, as of this commit.** 24 of 47 files in `src/pages/` read Firestore
+**Numbers, as of this commit.** 25 of 47 files in `src/pages/` read Firestore
 (4 of the rest are thin wrappers around wired components and 2 are auth
-screens). 20 service modules. 23 collections have a `match` block in
-`firestore.rules`. 23 composite indexes declared. 3 rules registered on the sale
-engine. `npm run verify:rules` checks 49 reads against 6 seeded roles.
+screens), and none of the 47 imports `firebase/firestore`. 20 service modules.
+23 collections have a `match` block in `firestore.rules`. 23 composite indexes
+declared. 3 rules registered on the sale engine. `npm run verify:rules` checks
+50 reads against 6 seeded roles; `npm run verify:writes` checks 87 cases across
+2 write rules.
 
 **The documentation was recounted on 20 August.** `SCREEN-AUDIT.md` carried its
 original scope line — 55 files, 93 routes, 93 menu leaves — against a tree that is
@@ -107,24 +124,29 @@ Two things follow that are easy to trip on:
 
 Roughly in the order it matters:
 
-1. **`Profile.js` writes `users/` directly** (`:16`), so it produces no audit
-   entry — and under the real rules only a Super Admin may update `users`, so it
-   cannot work for anyone else. It is the last service-layer bypass; `Navbar.js`
-   lost its read on 19 August.
-2. **One write rule is checked, and no others.** `verify:writes` covers the
-   safety-provenance rule on `products`; every other write and the batches
-   behind them are unchecked, and a batch fails whole.
-3. **Damage and Sales Return should move stock**, per above.
-4. **The 40 report routes.** `SCREEN-AUDIT.md` §7 decision 1 keeps 8 and takes
+1. **Two write rules are checked, and no others.** `verify:writes` covers the
+   safety-provenance rule on `products` and the self-edit rule on `users`; every
+   other write and the batches behind them are unchecked, and a batch fails
+   whole. The sale batch — five collections in one commit — is the one worth
+   doing next.
+2. **Damage and Sales Return should move stock**, per above.
+3. **The 40 report routes.** `SCREEN-AUDIT.md` §7 decision 1 keeps 8 and takes
    the other 32 out of the menu. The menu still lists all 40, and 38 of them
    render the same sales table.
-5. **The remaining sample-data screens**, cheapest first: `Categories`,
+4. **The remaining sample-data screens**, cheapest first: `Categories`,
    `Settings`, `Mapping` — all masters other screens would select from.
-6. **Two screens still call `toISOString()`** (`CashCollection.js:3`,
+5. **Two screens still call `toISOString()`** (`CashCollection.js:3`,
    `SupplierPurchase.js:37`). Banned everywhere else; fix them when those
    screens are migrated.
-7. **`Notice` exists three times.** `Product.js` and `SalesEntry.js` carry
+6. **`Notice` exists three times.** `Product.js` and `SalesEntry.js` carry
    copies from before it was extracted.
+7. **A self-edit is not type-checked on the server.** `editingOwnProfile()`
+   constrains which fields may differ and says nothing about their values, so a
+   caller past the service layer can store a number or a blank string as their
+   `name`. `updateMyProfile()` refuses both. Deliberate — a type test in the
+   rules is the evaluation error that predicate is written to avoid — and it
+   moves no role, permission or scope. Stated at the end of every
+   `verify:writes` run.
 
 ---
 

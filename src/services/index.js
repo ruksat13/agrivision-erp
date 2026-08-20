@@ -75,8 +75,8 @@ export {
 
 // ── users ─────────────────────────────────────────────────────────────────
 export {
-    getUser, getUserOrThrow, listUsers, listOfficers,
-    createUserProfile, updateUser, updateUserPermissions, deactivateUser,
+    getUser, getUserOrThrow, getMyProfile, listUsers, listOfficers,
+    createUserProfile, updateUser, updateMyProfile, updateUserPermissions, deactivateUser,
     startSession, endSession, hasAccess,
 } from './users';
 

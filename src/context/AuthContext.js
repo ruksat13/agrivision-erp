@@ -128,6 +128,25 @@ export function AuthProvider({ children }) {
         });
     }, []);
 
+    /**
+     * Re-read the signed-in user's own profile and put it back into the
+     * session. /profile calls this after a self-edit, so the sidebar greeting
+     * and the navbar chip follow the name that was just saved rather than
+     * showing the old one until the next reload.
+     *
+     * A GET on users/{own uid}, which every signed-in role may make — the same
+     * read getMyProfile() makes, and the reason the rule's third arm exists.
+     */
+    const refreshProfile = useCallback(async () => {
+        const fbUser = auth.currentUser;
+        if (!fbUser) return;
+        const profile = await getUser(fbUser.uid);
+        if (!profile) return;
+        const user = shapeUser(fbUser.uid, profile, fbUser);
+        remember(user);
+        setCurrentUser(user);
+    }, []);
+
     // Restores the session on reload, and clears it on sign-out. This does NOT
     // write a login audit entry — refreshing the page is not a login, and an
     // audit log that cannot tell the two apart is noise.
@@ -164,7 +183,7 @@ export function AuthProvider({ children }) {
         return unsubscribe;
     }, []);
 
-    const value = { currentUser, login, logout, hasAccess, updateUserPermissions, allPaths };
+    const value = { currentUser, login, logout, hasAccess, updateUserPermissions, refreshProfile, allPaths };
 
     return (
         <AuthContext.Provider value={value}>

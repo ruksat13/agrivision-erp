@@ -165,6 +165,7 @@ function seedUsers() {
         put('users', o.code, {
             name: o.name,
             email: o.email,
+            phone: null,
             role: 'Sales Officer',
             permissions: OFFICER_PERMISSIONS,
             officeId: 'head',
@@ -181,6 +182,7 @@ function seedUsers() {
         put('users', s.code, {
             name: s.name,
             email: s.email,
+            phone: null,
             role: s.role,
             permissions: s.permissions,
             officeId: 'head',

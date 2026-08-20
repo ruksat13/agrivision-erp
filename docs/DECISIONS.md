@@ -1,6 +1,6 @@
 # Decisions — why this project is shaped as it is
 
-**Updated 20 August 2026.** Reasoning only. What the system *is* today is in
+**Updated 21 August 2026.** Reasoning only. What the system *is* today is in
 [`HANDOVER.md`](HANDOVER.md); how to work on it is in [`CLAUDE.md`](../CLAUDE.md); the data model and
 its own D1–D5 log are in [`FIRESTORE-SCHEMA.md`](FIRESTORE-SCHEMA.md).
 
@@ -229,6 +229,87 @@ is also the `users/` document ID. Not cosmetic:
 The cost: creating an account with a chosen UID is an admin operation. The emulator accepts
 `Authorization: Bearer owner`; a real project needs a service-account key, which this repository
 deliberately does not carry, so `seed-auth.mjs` stops and says so rather than half-working.
+
+### A user may edit their own name and phone; `users` is otherwise Super Admin only
+
+`FIRESTORE-SCHEMA.md` §7 said **"users — write: Super Admin only"**, with no exception, and
+`firestore.rules` said the same in one line: `allow create, update: if isSuperAdmin()`. It now says a
+signed-in user may change `name` and `phone` on their own document, and that everything else on it —
+`role`, `permissions`, `areaId`, `territoryId`, `officerId`, `officeId`, `employeeId`, `customerId`,
+`status`, `email` — is still Super Admin only. §7 and §4.7 have been corrected to match.
+
+This is the first reversal of a rule in that table, so it is worth being exact about what changed and
+what did not.
+
+**What the old rule cost.** `/profile` is on every seeded permission list. Under the old rule, eleven
+of the twelve logins could open it and could not save from it: the screen showed a name and a phone
+box and a Save button that could only produce `permission-denied`. That is `CLAUDE.md` §6's second
+failure mode — *shown but refused by the server* — and it had a second half, because `Profile.js` was
+also the last screen calling `doc`/`getDoc`/`setDoc` on Firestore itself. It wrote with no audit
+entry, on the one collection that decides what everybody else may do; and the `role` it wrote came
+from a `<select>` offering Admin / Manager / Employee, three values that are not in `ROLE`. Had it
+ever succeeded, it would have written a role no rule recognises, and every rule that asks for one
+would then have denied — locking the Super Admin out of their own system with a successful save.
+
+**Why two fields are not the same authority as writing a user.** The fields on `users` divide cleanly.
+`name` and `phone` are *presentation*: what the sidebar greets you with, what a colleague rings. No
+rule reads either. Everything else is *authority* — `role` is what `firestore.rules` tests on every
+single request, `permissions` is which pages open, `areaId`/`territoryId`/`officerId` are the scope
+that decides which rows exist for you, `status` is whether you may act at all, and `email` is the
+identity the Auth record is matched against. Letting somebody correct the spelling of their own name
+is not a step towards letting them grant themselves a role; they are different fields with different
+readers, and the rule now says so field by field rather than collection-wide.
+
+Rejected: leaving `/profile` read-only. It is honest, and it would have kept the schema table
+literally true, but it makes the system unable to do a thing every system does, for no gain — the
+authority fields were never the ones anybody wanted to edit there. Also rejected: routing a self-edit
+through a request that a Super Admin approves. That is a real design for `role`, and pure ceremony for
+a phone number.
+
+**The predicate is the control, and it compares against the stored document.** The obvious way to
+write this is to whitelist the fields the write is *allowed to contain*. That is wrong here, and
+wrong in a way that grants exactly what this rule exists to refuse: the caller chooses what to send,
+so a payload of `{ name, role }` contains `name` — a permitted field — and a whitelist that stops at
+"is `name` allowed?" waves the `role` through with it. The rule therefore asks what actually
+**differs from `resource.data`**:
+
+    request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'phone', 'updatedAt'])
+
+An unchanged field sent alongside a changed one is not in `affectedKeys()` and cannot buy the write
+its legality. A field the caller never mentioned but that the write would drop — a full `setDoc()` of
+two fields, removing the other nine — *is* a difference, and is refused. `create` is a separate
+`allow` line for a mechanical reason: `resource` is null there, so the same predicate would error
+rather than deny.
+
+**And it is written from operations that cannot error**, which is the same discipline as
+`safetyProvenanceHolds()` above and is here for a sharper reason. The self-edit arm sits to the right
+of `isSuperAdmin() ||`. In this engine `error || true` is TRUE, so an evaluation error inside it
+would be **absorbed for a Super Admin and would deny for everybody else** — which is precisely the
+old behaviour, and would look like a working rule while leaving `/profile` dead for the eleven logins
+it was just built for. No `is string`, no `.size()`, no type test: `diff()`, `affectedKeys()` and
+`hasOnly()` cannot error on any value these fields can hold.
+
+That was proved rather than reasoned. `scripts/verify-writes.mjs` §12 loads two probe rulesets whose
+only condition is the predicate itself and its negation, and asserts each **allows** for the shapes it
+must call true and false respectively — an ALLOW cannot be produced by an error, so between the two
+every shape is shown to have returned a boolean. The run makes the case for doing it that way on its
+own face: this emulator stamps *"evaluation error at L341:24"* onto the denial of every escalation
+case **and** reports `false` for the same line in the same message. The wording is noise, the outcome
+is not, and no assertion here is ever on the text.
+
+The escalation cases are all driven as the seeded **Area Manager** and the seeded **Sales Officer**.
+A Super Admin may legitimately change a role, so a refusal proved as one would be the rule's other arm
+answering and would prove nothing at all; the Super Admin appears once, as the positive control that
+this is a restriction rather than a wall.
+
+The usual cost applies: `updateMyProfile()` in `users.js` and `editingOwnProfile()` in
+`firestore.rules` are one decision written twice, like `OVERRIDE_ROLES`/`canOverrideRules()` and
+`isRecorded()`/`safetyRecorded()` before it. The service refuses a stray field with a sentence a
+screen can print; the rules refuse it for the caller who never opened a screen. Only the second one
+is the control. They differ deliberately in one place — the service also refuses a blank `name` and a
+non-string one, and the rules do not, because a type test is the error this predicate is written to
+avoid. That is a data-quality gap and it is stated at the end of every `verify:writes` run; no shape
+of it moves a role, a permission or a scope.
 
 ### The demonstration runs on the emulator
 

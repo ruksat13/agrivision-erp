@@ -11,11 +11,12 @@
 import { COL, ROLE, STATUS } from './constants';
 import {
     createDoc, updateDoc_, softDelete, getById, getByIdOrThrow, listDocs,
-    requireFields, assertEnum, setActor, ServiceError,
+    requireFields, requireActor, assertEnum, setActor, ServiceError,
 } from './core';
 import { logAuth } from './audit';
 
 const NULLABLE_DEFAULTS = {
+    phone: null,          // presentation only; the one field besides name a user may edit
     officeId: null,
     areaId: null,
     territoryId: null,
@@ -68,6 +69,26 @@ export const listUsers = ({ role, status, areaId } = {}) =>
  */
 export const listOfficers = () => listUsers({ role: 'Sales Officer', status: 'Active' });
 
+/**
+ * The signed-in user's own profile — what /profile loads.
+ *
+ * **The caller must be the subject of the document, and that is the only form
+ * this read has.** It is a GET on `users/{own uid}`, never a LIST. The rule's
+ * third arm is `signedIn() && request.auth.uid == uid` — a condition on the
+ * DOCUMENT ID, not on a field — so no where() clause could make a LIST of
+ * `users` legal for a non-admin, which is the constraint written out at length
+ * on listUsers() above. A GET satisfies it directly, so every signed-in role
+ * may call this for themselves and none may call it for anybody else.
+ *
+ * That is why /profile does not go through listUsers(): an Area Manager, a
+ * Sales Officer or a Storekeeper is refused that one outright and would get an
+ * empty screen where their own name should be.
+ */
+export function getMyProfile() {
+    const actor = requireActor();
+    return getUserOrThrow(actor.id);
+}
+
 // ── Writes ────────────────────────────────────────────────────────────────
 
 /**
@@ -100,6 +121,56 @@ export async function updateUser(uid, patch) {
     const clean = { ...patch };
     delete clean.password;
     return updateDoc_(COL.USERS, uid, clean);
+}
+
+/**
+ * The two fields a user may change on their own profile: `name` and `phone`.
+ *
+ *   await updateMyProfile({ name, phone })
+ *
+ * Everything else on `users` — `role`, `permissions`, `areaId`, `territoryId`,
+ * `officeId`, `employeeId`, `customerId`, `status`, `email` — stays Super Admin
+ * only, and that is enforced in firestore.rules on the `users` update path, not
+ * here. This function is the convenience half (CLAUDE.md §6): it refuses a
+ * stray field with a sentence a screen can print, instead of letting the write
+ * leave and come back as `permission-denied`.
+ *
+ * It goes through updateDoc_ for the reason §4 gives — the audit entry is
+ * queued in the same batch, and updateDoc_ reads the document first so the
+ * entry carries the `before` value. A self-edit nobody can reconstruct is not
+ * a control: `before.name` is what says which name was changed to this one,
+ * and by whom.
+ *
+ * No uid argument, deliberately. The document is the actor's own, taken from
+ * the actor rather than from the caller, so there is no shape of this call
+ * that edits somebody else.
+ */
+export async function updateMyProfile(patch = {}) {
+    const actor = requireActor();
+
+    const stray = Object.keys(patch).filter(k => k !== 'name' && k !== 'phone');
+    if (stray.length) {
+        throw new ServiceError(
+            'VALIDATION',
+            `You may edit your own name and phone only — refused: ${stray.join(', ')}.`,
+            { stray },
+        );
+    }
+
+    const clean = {};
+    if (patch.name !== undefined) clean.name = String(patch.name).trim();
+    if (patch.phone !== undefined) clean.phone = String(patch.phone).trim();
+
+    // `name` is required (schema §4.7) and is denormalised onto every audit
+    // entry this user writes, so a blank one would make the log unreadable.
+    if (clean.name === '') {
+        throw new ServiceError('VALIDATION', 'Name cannot be empty.');
+    }
+    if (!Object.keys(clean).length) {
+        throw new ServiceError('VALIDATION', 'Nothing to save.');
+    }
+
+    return updateDoc_(COL.USERS, actor.id, clean);
 }
 
 /**

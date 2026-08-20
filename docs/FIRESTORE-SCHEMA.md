@@ -391,7 +391,8 @@ concurrent sales would then race.
 
 | Field | Type | Req | Notes |
 |---|---|---|---|
-| `name` | string | ✔︎ | |
+| `name` | string | ✔︎ | **Self-editable** — see the write note below |
+| `phone` | string \| null | | **Self-editable.** Presentation only; no rule reads it |
 | `email` | string | ✔︎ | Matches the Auth record |
 | `role` | string | ✔︎R | `Super Admin` \| `Managing Director` \| `Area Manager` \| `Sales Officer` \| `Accountant` \| `Storekeeper` \| `Delivery Man` \| `Dealer` — the eight actors in `PROJECT-OUTLINE.md` §3 |
 | `permissions` | string \| array\<string\> | ✔︎ | `'all'`, or the list of menu paths. **Keep the present shape** — `ProtectedRoute.js` and the Admin permission editor both work against it |
@@ -407,6 +408,19 @@ concurrent sales would then race.
 > currently compares plaintext passwords out of `localStorage` under the key `av_users`; that path is
 > removed, along with the `defaultUsers` array at `AuthContext.js:16`.
 > `PROJECT-OUTLINE.md` §8 requires hashed storage.
+
+> **Who may write this document.** A Super Admin may write any field on any user. A signed-in user may
+> additionally change **`name` and `phone` on their own document**, and nothing else — `role`,
+> `permissions`, `areaId`, `territoryId`, `officerId`, `officeId`, `employeeId`, `customerId`,
+> `status` and `email` remain Super Admin only. This reverses the flat "users: Super Admin only" that
+> §7 carried until 21 August; the reasoning is in `DECISIONS.md` under Platform.
+>
+> `editingOwnProfile()` in `firestore.rules` is the control, and it compares against `resource.data`
+> rather than against the fields the write happens to contain: an unchanged field arriving alongside a
+> changed `role` must not make the write legal, and a full `setDoc()` that drops nine fields is a
+> difference too. `updateMyProfile()` in `src/services/users.js` is the convenience copy of the same
+> decision. Both directions are asserted in `scripts/verify-writes.mjs`, driven as a **non**-Super-Admin
+> — a Super Admin may legitimately change a role, so a refusal proved as one proves nothing.
 
 ---
 
@@ -502,7 +516,7 @@ function mine(o)     { return role() == 'Sales Officer' && user().officerId == o
 | `sales` | Admin, or `myArea`, or `mine` | create: Sales Officer for own territory · update: Area Manager and above · **delete: nobody** |
 | `sale_items` | as the parent sale | written only in the same batch as the sale |
 | `stock_movements` | Admin, Storekeeper, Accountant | **create only** — never update or delete |
-| `users` | self, or Super Admin | Super Admin only |
+| `users` | self, or Super Admin (and the Accountant, for the /expense staff selector) | Super Admin only, **except** `name` and `phone` on your own document — §4.7 |
 | `audit_log` | Admin | **create only.** `reason` required when `action == 'rule_override'` |
 
 Two invariants worth stating in the report: **`audit_log` and `stock_movements` are append-only** —

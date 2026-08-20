@@ -140,6 +140,11 @@ const READS = [
     // constraint is on the caller; see the comment on listUsers().
     { name: 'listUsers', collection: 'users', allow: [...ADMIN, 'Accountant'], run: () => S.listUsers() },
     { name: 'listOfficers', collection: 'users', allow: [...ADMIN, 'Accountant'], run: () => S.listOfficers() },
+    // …and the same rule read the other way. getMyProfile() is a GET on the
+    // caller's own document, which is precisely the arm a LIST cannot satisfy,
+    // so every signed-in role may make it — including the three refused above.
+    // /profile is built on it for that reason.
+    { name: 'getMyProfile', collection: 'users', allow: EVERYONE, run: () => S.getMyProfile() },
 
     // ── Tier 2 — role-gated, none row-scoped (they are company books) ────
     { name: 'listSuppliers', collection: 'suppliers', allow: [...ADMIN, 'Storekeeper'], run: () => S.listSuppliers() },

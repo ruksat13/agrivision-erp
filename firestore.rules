@@ -295,11 +295,50 @@ service cloud.firestore {
     // WRITE stays with the Super Admin alone, including for the MD. /admin
     // edits page access, and a role that can rewrite its own permissions is a
     // Super Admin under another name — which is exactly what the MD is not.
+    //
+    // ONE exception, and it is narrow: a signed-in user may edit `name` and
+    // `phone` on their own document (docs/DECISIONS.md, Platform). Those are
+    // presentation fields — what the sidebar greets you with and what a
+    // colleague rings — and everything that decides AUTHORITY stays where it
+    // was. Before this, /profile was a screen eleven of the twelve seeded
+    // logins could only produce an error on.
+    //
+    // The predicate is the whole control, so it is written to two rules:
+    //
+    //   · It compares against `resource.data`, not against a whitelist of the
+    //     fields that were SENT. A caller chooses what to send, so an
+    //     unchanged `areaId` arriving alongside a changed `role` must not buy
+    //     the write its legality — affectedKeys() answers "what actually
+    //     differs from the stored document", which is the question worth
+    //     asking. It also means a full setDoc() of two fields is refused,
+    //     because dropping the other nine is a difference too.
+    //
+    //   · No `is string`, no `.size()`, no type test of any kind — the same
+    //     discipline as safetyProvenanceHolds() above and for the same reason.
+    //     An evaluation error inside a sub-expression is absorbed by a
+    //     surrounding `||` and behaves correctly by luck. diff(), affectedKeys()
+    //     and hasOnly() cannot error here: `resource.data` and
+    //     `request.resource.data` are both maps on an update, and the
+    //     comparison never touches a field's type. That was not assumed —
+    //     scripts/verify-writes.mjs proves it with probe rulesets that assert
+    //     the sub-expression is TRUE for every self-edit shape and FALSE for
+    //     every escalation shape, because a denial cannot be told from an error
+    //     by its message.
+    //
+    // create is split off from update on purpose: `resource` is null on a
+    // create, so onlyChanges() would error there rather than deny.
+    function editingOwnProfile(uid) {
+      return active()
+             && request.auth.uid == uid
+             && onlyChanges(['name', 'phone', 'updatedAt']);
+    }
+
     match /users/{uid} {
       allow read:   if isAdmin()
                     || hasRole(['Accountant'])
                     || (signedIn() && request.auth.uid == uid);
-      allow create, update: if isSuperAdmin();
+      allow create: if isSuperAdmin();
+      allow update: if isSuperAdmin() || editingOwnProfile(uid);
       allow delete: if false;
     }
 

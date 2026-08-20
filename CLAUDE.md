@@ -543,13 +543,17 @@ not as recorded fact.
 
 Not settled patterns — say so rather than guessing:
 
-- **One screen bypasses the service layer.**
-  [`Profile.js:16`](src/pages/Profile.js:16) calls `doc`/`getDoc`/`setDoc` on
-  `users` directly. It also *writes* that way, so it produces no audit entry —
-  and under the real rules only a Super Admin may update `users`, so it cannot
-  work for anyone else. Do not copy it; use `users.js`. (`Navbar.js` was the
-  second; its read was removed on 19 August, and it was dead code as well as a
-  bypass — `AuthContext.shapeUser()` always sets `name`.)
+- **No screen bypasses the service layer any more**, and the entry that used to
+  sit here is the reason to keep it that way. `Profile.js` called
+  `doc`/`getDoc`/`setDoc` on `users` directly until 21 August: it wrote with no
+  audit entry, on the collection that decides what everyone else may do, and
+  under the real rules only a Super Admin could write `users` at all — a screen
+  eleven of the twelve logins could open and never save from. It now goes
+  through `getMyProfile()` and `updateMyProfile()` in `users.js`, and the rule
+  that lets it work is `editingOwnProfile()` in `firestore.rules` (schema §4.7,
+  `DECISIONS.md` under Platform). `Navbar.js` was the other bypass; its read
+  went on 19 August, and it was dead code as well — `AuthContext.shapeUser()`
+  always sets `name`.
 - **`Notice` exists three times.** The shared one is `components/Notice.js`;
   `Product.js` and `SalesEntry.js` carry their own copies from before it was
   extracted. New screens import the shared one.
