@@ -69,7 +69,43 @@ const COLLECTIONS = [
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
-const ts = (v) => (v ? Timestamp.fromDate(new Date(v)) : null);
+/**
+ * A date string → a Firestore Timestamp at LOCAL midnight.
+ *
+ * MAINTAINED IN PARALLEL WITH toTimestamp() in src/services/core.js:127.
+ * Same accepted inputs, same output, deliberately duplicated: this script is
+ * self-contained and cannot import src/services (see the header above and
+ * CLAUDE.md §8), so the conversion has to exist on both sides of the boundary.
+ * Change one, change the other.
+ *
+ * This used to be `Timestamp.fromDate(new Date(v))`. `new Date('2026-06-01')`
+ * parses a bare YYYY-MM-DD as **UTC** midnight — the conversion CLAUDE.md §2
+ * bans, and the same one already fixed in c61bb3b, 631f9d8 and f3d54f2. At
+ * UTC+6 it stored 06:00 local, six hours after the local midnight that
+ * toTimestamp() stores for a sale dated the same day. Every seeded
+ * `bannedFrom`, licence `issueDate`/`expiryDate` and `saleDate` sat six hours
+ * late, so both seeded banned products were NOT refused on the day their ban
+ * took effect — the one boundary an examiner is certain to test against
+ * Feature 2. Every date here is a business date: the day a ban takes effect,
+ * the day a licence lapses, the day a sale was made.
+ */
+const ts = (v) => {
+    if (v === null || v === undefined || v === '') return null;
+    if (v instanceof Timestamp) return v;
+    if (v instanceof Date) return Timestamp.fromDate(v);
+
+    if (typeof v === 'string') {
+        const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v);
+        if (iso) return Timestamp.fromDate(new Date(+iso[1], +iso[2] - 1, +iso[3]));
+
+        const dmy = /^(\d{2})-(\d{2})-(\d{4})$/.exec(v);
+        if (dmy) return Timestamp.fromDate(new Date(+dmy[3], +dmy[2] - 1, +dmy[1]));
+
+        const parsed = new Date(v);
+        if (!Number.isNaN(parsed.getTime())) return Timestamp.fromDate(parsed);
+    }
+    throw new Error(`seed: cannot read "${v}" as a date.`);
+};
 const money = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
 const SEED_ACTOR = { id: 'system-seed', name: 'Seed script', role: 'Super Admin' };
 

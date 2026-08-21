@@ -12,6 +12,13 @@ repeated here.
 output actually observed. Invoice numbers, balances and audit rows in this
 document are real ones from those runs.
 
+**This is a record of what was found, not a to-do list.** A finding that has since
+been fixed is struck through in its heading and carries a dated resolution note
+above the original text, in the style `SCREEN-AUDIT.md` §8 uses — the finding
+itself is never deleted or rewritten, because what it says about the state of the
+system on 21 August 2026 stays true. **Resolved so far: FIX 8 and FIX 9**, both on
+21 August.
+
 ---
 
 ### What this pass covered
@@ -471,7 +478,46 @@ invoice, and neither does clearing it:
 
 ---
 
-## FIX 8 — The two seeded banned products are not refused on the day the ban takes effect
+## ~~FIX 8 — The two seeded banned products are not refused on the day the ban takes effect~~
+
+> **Resolved 21 August 2026.** `ts()` in [`scripts/seed.mjs`](../scripts/seed.mjs)
+> no longer goes through `new Date(v)`. It parses a `YYYY-MM-DD` field by field
+> into a LOCAL midnight, which is what `toTimestamp()`
+> ([`core.js:127`](../src/services/core.js:127)) has always done; the two are
+> now the same conversion written twice, commented as such on both sides, for
+> the reason `OVERRIDE_ROLES` is (`CLAUDE.md` §5). Re-seeded and re-observed
+> under the **real** rules:
+>
+> ```
+>   AI-000905  stored bannedFrom -> Mon Jun 01 2026 00:00:00 GMT+0600
+>       2026-05-31 local midnight  day before          isBannedOn = false  PASS
+>       2026-06-01 local midnight  THE effective day   isBannedOn = true   PASS
+>       2026-06-02 local midnight  day after           isBannedOn = true   PASS
+>
+>   AI-000906  stored bannedFrom -> Wed Jul 15 2026 00:00:00 GMT+0600
+>       2026-07-14 local midnight  day before          isBannedOn = false  PASS
+>       2026-07-15 local midnight  THE effective day   isBannedOn = true   PASS
+>       2026-07-16 local midnight  day after           isBannedOn = true   PASS
+>
+>   AI-000452  banned via banProduct() — the service path, unchanged
+>              stored bannedFrom -> Mon Jun 01 2026 00:00:00 GMT+0600
+>       2026-06-01 local midnight  THE effective day   isBannedOn = true   PASS
+> ```
+>
+> `isBannedOn()` and `banProduct()` were correct and are untouched; the seed now
+> stores the same instant the service does. The six hours also sat under every
+> seeded licence `issueDate`/`expiryDate` and every seeded `saleDate`, and are
+> gone from those too — which is what moved the licence day counts by one (see
+> FIX 9 below, and `SCREEN-AUDIT.md` §8).
+>
+> A regression guard went in with it: `scripts/verify.mjs` invariant 8 asserts
+> that **every** seeded ban, licence and sale timestamp is stored at local
+> midnight — 71 of them — so the class cannot come back silently through a
+> fourth route. `verify.mjs` also had its own two copies of the defect in its
+> reporting helpers, and printed this ban as "from 2026-05-31"; both are fixed
+> and commented as parallel to the app's.
+>
+> The finding below is left exactly as it was recorded.
 
 **What it is.** `isBannedOn()` is correct (`when >= from`). The seed is not.
 [`scripts/seed.mjs:72`](../scripts/seed.mjs:72) is
@@ -516,7 +562,44 @@ database, for both demo products.
 
 ---
 
-## FIX 9 — On its last day a licence reads "Expired" in the register and "permitted" at the point of sale
+## ~~FIX 9 — On its last day a licence reads "Expired" in the register and "permitted" at the point of sale~~
+
+> **Resolved 21 August 2026.** `daysToExpiry()`
+> ([`licences.js`](../src/services/licences.js)) now normalises **both** sides
+> to local midnight before subtracting, so a clock time and a date give the same
+> answer and every caller agrees. Decision D5 — licence status is derived at read
+> time and never stored — is what makes one function the only place this could
+> be fixed, and the reason it is now fixed everywhere at once.
+>
+> Driven under the real rules at 18:54 local on 21 August, against licences
+> created for the purpose:
+>
+> ```
+>   A LICENCE EXPIRING TODAY (2026-08-21)
+>     licenceStatus()   register / dashboard / compliance   asAt = now
+>         daysToExpiry = 0    licenceStatus = Expiring (7)
+>         was, pre-fix: daysToExpiry = -1   licenceStatus = Expired
+>     licenceCheckFor() SalesEntry passes the sale date
+>         daysToExpiry = 0    licenceStatus = Expiring (7)   sale rule -> PERMITTED
+>     -> both halves of Feature 1 now return the same verdict.
+>
+>   A LICENCE EXPIRING TOMORROW (2026-08-22)
+>         daysRemaining = 1   (was 0)
+>
+>   A LICENCE THAT EXPIRED YESTERDAY (2026-08-20)
+>         daysRemaining = -1  (was -2)
+>         register = Expired  ·  sale rule -> LICENCE_EXPIRED BLOCKED
+> ```
+>
+> The band is now what it says: "expiring within 7 days" means within seven, not
+> eight. The counts themselves did not move — the seeded licence offsets are
+> -14 / -3 / -60 / +5 / +21 and the bands stay 3 expired and 1 / 2 / 2 with 18
+> beyond 60 days — but each licence's reported `daysRemaining` gained a day and
+> now matches the offset the seed intended. `SCREEN-AUDIT.md` §8 and `README.md`
+> said `AIC-000001` lapsed 15 days ago; it is 14, which is the "fortnight" the
+> seed comment always claimed, and both are corrected.
+>
+> The finding below is left exactly as it was recorded.
 
 **What it is.** `daysToExpiry()` subtracts a stored instant from `asAt` and floors
 the result. The register, the Dashboard panel and the Compliance Report pass
@@ -859,7 +942,8 @@ viva because each is a control the project claims.
 - **The safety snapshot is stable across product changes**, including clearing
   (FIX 7, *Clean*).
 - **`banProduct()` is date-correct** when the ban is set through the service; only
-  the seed is wrong (FIX 8).
+  the seed was wrong (FIX 8, since **resolved 21 August** — the seed now stores
+  the same local midnight, and `banProduct()` is unchanged).
 - **Categories needing no licence pass straight through.** A Gift line to a dealer
   holding no licence produced no result at all; a PGR line produced
   `LICENCE_MISSING` via `LICENCE_FOR_CATEGORY`.

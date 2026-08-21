@@ -42,6 +42,30 @@ const load = async (name) => (await getDocs(collection(db, name))).docs.map(d =>
 const money = (n) => Math.round((Number(n || 0) + Number.EPSILON) * 100) / 100;
 const day = (ts) => (ts?.toDate ? ts.toDate() : null);
 
+/**
+ * A Date as YYYY-MM-DD in the LOCAL timezone, and the whole-day distance
+ * between two dates measured from local midnight on each side.
+ *
+ * MAINTAINED IN PARALLEL WITH formatDate()/toDate() in src/services/core.js and
+ * daysToExpiry() in src/services/licences.js. This script cannot import them
+ * (CLAUDE.md §8), so it keeps its own copies, and they have to give the same
+ * answers as the app or this run reports figures the screens contradict.
+ *
+ * Both were `toISOString().slice(0, 10)` and a floor over raw instants. With
+ * the seed storing local midnight they printed a ban effective 2026-06-01 as
+ * "from 2026-05-31", and reported the seeded licence offsets -14/-3/-60/+5/+21
+ * as -15/-4/-61/+4/+20 — the same two defects this fixes in the app, in the
+ * script that checks it.
+ */
+const ymd = (d) => {
+    if (!d) return null;
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+};
+const midnight = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+const daysBetween = (from, to) =>
+    Math.round((midnight(to).getTime() - midnight(from).getTime()) / 86400000);
+
 let failures = 0;
 const check = (label, ok, detail = '') => {
     console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${label}${detail ? ` — ${detail}` : ''}`);
@@ -159,13 +183,38 @@ if (data.suppliers.length) {
 // 7 — every product carries the category Feature 1 gates on
 check('every product has a category', data.products.every(p => !!p.category));
 
+// 8 — every seeded business date is stored at LOCAL midnight.
+//
+// This is the invariant `ts()` in seed.mjs exists to hold, and the one whose
+// absence made both seeded banned products sellable on the day their ban took
+// effect. `new Date('2026-06-01')` parses as UTC midnight, which at UTC+6 is
+// 06:00 local — six hours after the local midnight toTimestamp() stores for a
+// sale dated the same day, so the sale fell six hours short of its own ban.
+// A ban date, a licence expiry and a sale date are business dates (CLAUDE.md
+// §2); an instant partway through the day is not one. Checking the stored
+// clock reading catches the whole class in one assertion, whatever the
+// timezone of the machine that seeded it.
+const dated = [
+    ...data.products.filter(p => p.bannedFrom).map(p => [`${p.id}.bannedFrom`, p.bannedFrom]),
+    ...data.licences.flatMap(l => [[`${l.id}.issueDate`, l.issueDate], [`${l.id}.expiryDate`, l.expiryDate]]),
+    ...data.sales.map(s => [`${s.id}.saleDate`, s.saleDate]),
+];
+const offMidnight = dated
+    .map(([label, ts]) => [label, day(ts)])
+    .filter(([, d]) => d && (d.getHours() || d.getMinutes() || d.getSeconds()));
+check('every seeded ban, licence and sale date is stored at LOCAL midnight',
+    offMidnight.length === 0,
+    offMidnight.length
+        ? offMidnight.slice(0, 3).map(([label, d]) => `${label} at ${d.toTimeString().slice(0, 8)}`).join(', ')
+        : `${dated.length} timestamps`);
+
 // ── The demonstration set-up ──────────────────────────────────────────────
 console.log('\nDemonstration set-up');
 
 const now = new Date();
 const dealerLicences = data.licences.filter(l => l.scope === 'dealer');
 const pesticide = dealerLicences.filter(l => l.licenceType === 'Pesticide');
-const days = (l) => Math.floor((day(l.expiryDate) - now) / 86400000);
+const days = (l) => daysBetween(now, day(l.expiryDate));
 
 const expired = pesticide.filter(l => days(l) < 0);
 const soon = pesticide.filter(l => days(l) >= 0 && days(l) <= 30);
@@ -182,7 +231,7 @@ check('at least 1 dealer has no pesticide licence at all', without.length >= 1,
 
 const banned = data.products.filter(p => p.bannedFrom);
 check('2 products are banned from a stated date', banned.length === 2,
-    banned.map(p => `${p.id} from ${day(p.bannedFrom)?.toISOString().slice(0, 10)}`).join(', '));
+    banned.map(p => `${p.id} from ${ymd(day(p.bannedFrom))}`).join(', '));
 check('banned products are still Active (selectable, so the block is visible)',
     banned.every(p => p.status === 'Active'));
 

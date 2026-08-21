@@ -126,7 +126,7 @@ It is arranged so the two features can be demonstrated immediately:
 
 | To show | Use |
 |---|---|
-| Licence block (Feature 1) | dealer `AIC-000001` — pesticide licence expired 15 days ago — plus any pesticide |
+| Licence block (Feature 1) | dealer `AIC-000001` — pesticide licence expired 14 days ago — plus any pesticide |
 | A licence expiring soon | `AIC-000004` (4 days), `AIC-000005` (20 days) |
 | A dealer with no licence at all | `AIC-000006` |
 | Banned product block (Feature 2) | `AI-000905` or `AI-000906` — banned, and **not overridable** |

@@ -68,17 +68,59 @@ company's own commercial threshold rather than a legal prohibition. It reads
 refused. Not claimed as a contribution — every ERP has one — but it is now
 enforced rather than displayed.
 
+**Every business date is stored at local midnight, and a licence's last day
+means the same thing to both halves of Feature 1.** Two date defects from the
+21 August adversarial pass are closed (`KNOWN-LIMITATIONS.md`, FIX 8 and FIX 9,
+struck through there).
+
+`scripts/seed.mjs` was writing dates through `new Date('2026-06-01')`, which
+parses as UTC midnight and at UTC+6 stored 06:00 local — six hours after the
+local midnight `toTimestamp()` stores for a sale dated the same day. Both
+seeded banned products were therefore **not refused on the day their ban took
+effect**, which is the first boundary anyone tests against Feature 2. Its `ts()`
+now parses field by field into local midnight, matching `toTimestamp()`, and the
+two are commented as maintained in parallel — the script cannot import
+`src/services` (§8), so the conversion exists twice for the reason
+`OVERRIDE_ROLES` does. `banProduct()` and `isBannedOn()` were already correct and
+are untouched.
+
+`daysToExpiry()` subtracted a stored instant from `asAt` and floored it. The
+register, the Dashboard panel and the Compliance Report pass a clock time; the
+sale rule is passed a date. On a licence's expiry day those landed on opposite
+sides of the floor — the register said **Expired** while `/sales-entry`
+**permitted** the sale — and the same skew shifted the whole scale, so
+"expiring within 7 days" was really within eight. Both sides are now normalised
+to local midnight inside that one function, which D5 makes the only place it
+could be fixed.
+
+The band counts did not move (3 expired, 1 / 2 / 2, 18 beyond 60 days for a
+Super Admin; 3 and 1 / 1 / 1 with 17 for the Area Manager, and the Dashboard
+panel and Compliance Report still agree exactly). Each licence's `daysRemaining`
+gained a day and now matches the offset the seed intended: `AIC-000001` reads
+**-14**, the fortnight its seed comment always claimed, not -15.
+`SCREEN-AUDIT.md` §8 and `README.md` are corrected. `verify.mjs` carried its own
+copies of both defects in its reporting helpers — it printed the ban as "from
+2026-05-31" — and they are fixed and commented as parallel to the app's.
+
+**A new seed invariant guards it.** `verify.mjs` invariant 8 asserts that every
+seeded ban, licence and sale timestamp is stored at **local midnight** — 71 of
+them on the current seed. The UTC conversion has now been fixed four times in
+this repository (`c61bb3b`, `631f9d8`, `f3d54f2`, and this); that assertion is
+the first thing that would catch a fifth.
+
 **The spine.** Sales order entry, stock movements (sale, purchase, repack,
 opening), the dealer and supplier ledgers' balances, invoice numbering from
 atomic counters, and an append-only audit log that every write goes through.
 
-**Numbers, as of this commit.** 25 of 47 files in `src/pages/` read Firestore
-(4 of the rest are thin wrappers around wired components and 2 are auth
-screens), and none of the 47 imports `firebase/firestore`. 20 service modules.
-23 collections have a `match` block in `firestore.rules`. 23 composite indexes
-declared. 3 rules registered on the sale engine. `npm run verify:rules` checks
-50 reads against 6 seeded roles; `npm run verify:writes` checks 87 cases across
-2 write rules.
+**Numbers, as of this commit**, recounted rather than carried forward. 25 of 47
+files in `src/pages/` read Firestore (4 of the rest are thin wrappers around
+wired components and 2 are auth screens), and none of the 47 imports
+`firebase/firestore`. 20 service modules. 23 collections have a `match` block in
+`firestore.rules`. 23 composite indexes declared. 3 rules registered on the sale
+engine. `npm run verify:rules` checks 50 reads against 6 seeded roles;
+`npm run verify:writes` checks 87 cases across 2 write rules;
+`npm run verify:emulator` checks 12 invariants and 12 demonstration facts over
+285 documents.
 
 **The documentation was recounted on 20 August.** `SCREEN-AUDIT.md` carried its
 original scope line — 55 files, 93 routes, 93 menu leaves — against a tree that is

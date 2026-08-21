@@ -16,15 +16,38 @@ const DAY = 24 * 60 * 60 * 1000;
 
 // ── Derived status (decision D5 — never stored) ───────────────────────────
 
+/** A Date → the local midnight that starts its day. Never via UTC (§2). */
+const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
 /**
- * daysToExpiry(licence, asAt?) → integer; negative once expired.
+ * daysToExpiry(licence, asAt?) → whole days; negative once expired.
  * Always pass the sale date when checking a sale, not today's date.
+ *
+ * BOTH SIDES ARE NORMALISED TO LOCAL MIDNIGHT before subtracting, and this is
+ * the whole point of the function. A licence expiry is a business date — the
+ * day cover lapses, not an instant during it — so the answer must be the same
+ * whatever time of day it is asked.
+ *
+ * It was not. The register, the Dashboard panel and the Compliance Report pass
+ * `asAt = new Date()`, a clock time, while licenceCheckFor() is passed a date
+ * at local midnight. Subtracting raw instants and flooring put those two on
+ * opposite sides of the floor on a licence's expiry day: the register said
+ * Expired and the point of sale permitted the sale, Feature 1's two halves
+ * contradicting each other on a seeded dealer. The same skew shifted the whole
+ * scale by a day — a licence expiring tomorrow reported 0 days remaining, so
+ * the "expiring within 7 days" band was really within eight.
+ *
+ * D5 makes this the only place it can be fixed: licence status is derived at
+ * read time and never stored, so every caller reaches the comparison through
+ * here. Rounding rather than flooring because two local midnights differ by a
+ * whole number of days only where there is no DST shift between them; round
+ * keeps the count exact if that ever stops being true.
  */
 export function daysToExpiry(licence, asAt = new Date()) {
     const expiry = toDate(licence?.expiryDate);
     if (!expiry) return null;
     const from = toDate(asAt) ?? new Date();
-    return Math.floor((expiry.getTime() - from.getTime()) / DAY);
+    return Math.round((startOfDay(expiry).getTime() - startOfDay(from).getTime()) / DAY);
 }
 
 /** 'Expired' | 'Expiring (7)' | 'Expiring (30)' | 'Expiring (60)' | 'Active' */

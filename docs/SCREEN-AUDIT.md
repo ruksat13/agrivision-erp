@@ -585,7 +585,7 @@ invariants still hold with the two test orders in place.
 
 | Check | Result |
 |---|---|
-| Dealer `AIC-000001` (pesticide licence lapsed 15 days ago) + a pesticide | **Blocked.** `LICENCE_EXPIRED`, naming the licence `PL-2026-1000` and its expiry date. Save disabled |
+| Dealer `AIC-000001` (pesticide licence lapsed 14 days ago) + a pesticide | **Blocked.** `LICENCE_EXPIRED`, naming the licence `PL-2026-1000` and its expiry date. Save disabled |
 | Override path | Button present; **"Record override" stays disabled until a reason is typed**; Save enables only after the reason is recorded |
 | Dealer with a valid licence + banned `AI-000905` | **Blocked.** `PRODUCT_BANNED`, with the withdrawal date and authority. **No Override button at all**, Save stays disabled — a legal prohibition is not a manager's to waive |
 | The same banned line backdated to 15 May (before `bannedFrom`) | **Permitted**, saved as `AINV-2026-05-0034677`. The date-effective behaviour is intact |

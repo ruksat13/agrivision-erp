@@ -123,6 +123,17 @@ export function requireActor() {
  * Accepts a Date, a Timestamp, 'YYYY-MM-DD' or 'DD-MM-YYYY' and returns a
  * Firestore Timestamp. Both string forms appear in the existing pages, so both
  * are handled rather than making every caller remember which.
+ *
+ * A date string is parsed field by field into a LOCAL midnight, never through
+ * `new Date('2026-06-01')`, which parses a bare YYYY-MM-DD as UTC midnight and
+ * at UTC+6 stores 06:00 local (§2). Every date here is a business date.
+ *
+ * MAINTAINED IN PARALLEL WITH `ts()` in scripts/seed.mjs. That script cannot
+ * import this module — it is plain Node inside a CRA tree (CLAUDE.md §8) — so
+ * the conversion is written twice, for the reason OVERRIDE_ROLES is. They must
+ * agree or seeded dates and written dates land hours apart: they did, and both
+ * seeded banned products went unrefused on the day their ban took effect.
+ * Change one, change the other.
  */
 export function toTimestamp(value) {
     if (value === null || value === undefined || value === '') return null;
